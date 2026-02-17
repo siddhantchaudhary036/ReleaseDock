@@ -8,7 +8,13 @@
  * @module
  */
 
+import type * as changelogs from "../changelogs.js";
+import type * as labels from "../labels.js";
+import type * as onboarding from "../onboarding.js";
+import type * as projects from "../projects.js";
+import type * as storage from "../storage.js";
 import type * as users from "../users.js";
+import type * as workspaces from "../workspaces.js";
 
 import type {
   ApiFromModules,
@@ -17,7 +23,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  changelogs: typeof changelogs;
+  labels: typeof labels;
+  onboarding: typeof onboarding;
+  projects: typeof projects;
+  storage: typeof storage;
   users: typeof users;
+  workspaces: typeof workspaces;
 }>;
 
 /**

@@ -1,0 +1,4 @@
+1. Check if using blocknote/xl packages by mistake. these need a commercial use license
+2. Check Convex functions are secure and wrapped in auth
+3. Check no convex functions are .any() type
+4. 

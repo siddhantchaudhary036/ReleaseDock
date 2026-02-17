@@ -1,0 +1,27 @@
+Marketing
+    Put widget on landing page
+
+    Products
+        1. Changelog - in app & email notifications & historical changelog
+        2. Feedback/Surveys - in app & email surveys
+        3. Flook Style Onboarding tooltips?
+        
+    Pricing - featurelist, tier comparision chart, faq, 
+
+    Resources
+        1. Help Center
+        2. Developer Docs
+        3. Blog
+        4. About Us
+    
+    Contact
+
+    What's New Page
+
+    Footer
+        1. Terms of use
+        2. Privacy
+        3. Link all other pages
+
+
+    
