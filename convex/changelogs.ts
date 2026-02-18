@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 export const createChangelog = mutation({
   args: {
@@ -7,6 +8,7 @@ export const createChangelog = mutation({
     title: v.string(),
     content: v.any(),
     labelIds: v.array(v.id("labels")),
+    coverImageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -49,6 +51,7 @@ export const createChangelog = mutation({
       content: args.content,
       status: "draft",
       labelIds: args.labelIds,
+      coverImageId: args.coverImageId,
       authorId: user._id,
       createdAt: now,
       updatedAt: now,
@@ -64,6 +67,7 @@ export const updateChangelog = mutation({
     title: v.string(),
     content: v.any(),
     labelIds: v.array(v.id("labels")),
+    coverImageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -109,6 +113,7 @@ export const updateChangelog = mutation({
       title: args.title,
       content: args.content,
       labelIds: args.labelIds,
+      coverImageId: args.coverImageId,
       updatedAt: Date.now(),
     });
 
@@ -119,6 +124,7 @@ export const updateChangelog = mutation({
 export const publishChangelog = mutation({
   args: {
     changelogId: v.id("changelogs"),
+    scheduledPublishTime: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -126,7 +132,6 @@ export const publishChangelog = mutation({
       throw new Error("Unauthorized");
     }
 
-    // Get the current user
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
@@ -136,41 +141,248 @@ export const publishChangelog = mutation({
       throw new Error("User not found");
     }
 
-    // Get the changelog
     const changelog = await ctx.db.get(args.changelogId);
     if (!changelog) {
       throw new Error("Changelog not found");
     }
 
-    // Get the project
     const project = await ctx.db.get(changelog.projectId);
     if (!project) {
       throw new Error("Project not found");
     }
 
-    // Get the workspace to verify ownership
     const workspace = await ctx.db.get(project.workspaceId);
     if (!workspace) {
       throw new Error("Workspace not found");
     }
 
-    // Verify user owns the workspace
     if (workspace.ownerId !== user._id) {
       throw new Error("Forbidden");
     }
 
-    // Publish changelog - set status and publishDate
-    const updates: {
-      status: "published";
-      publishDate: number;
-      updatedAt: number;
-    } = {
+    // Cancel any existing scheduled publish
+    if (changelog.scheduledFunctionId) {
+      try {
+        await ctx.scheduler.cancel(changelog.scheduledFunctionId);
+      } catch {
+        // Already executed or canceled — safe to ignore
+      }
+    }
+
+    // Scheduled publish: future date/time
+    if (args.scheduledPublishTime && args.scheduledPublishTime > Date.now()) {
+      const scheduledFunctionId = await ctx.scheduler.runAt(
+        args.scheduledPublishTime,
+        internal.changelogs.executeScheduledPublish,
+        { changelogId: args.changelogId }
+      );
+
+      await ctx.db.patch(args.changelogId, {
+        status: "scheduled",
+        scheduledPublishTime: args.scheduledPublishTime,
+        scheduledFunctionId,
+        updatedAt: Date.now(),
+      });
+
+      return args.changelogId;
+    }
+
+    // Immediate publish
+    await ctx.db.patch(args.changelogId, {
       status: "published",
       publishDate: changelog.publishDate ?? Date.now(),
+      scheduledPublishTime: undefined,
+      scheduledFunctionId: undefined,
       updatedAt: Date.now(),
-    };
+    });
 
-    await ctx.db.patch(args.changelogId, updates);
+    return args.changelogId;
+  },
+});
+
+// Internal mutation executed by the scheduler — no auth needed
+export const executeScheduledPublish = internalMutation({
+  args: {
+    changelogId: v.id("changelogs"),
+  },
+  handler: async (ctx, args) => {
+    const changelog = await ctx.db.get(args.changelogId);
+    if (!changelog) return;
+
+    // Only publish if still in scheduled state (guards against cancel races)
+    if (changelog.status !== "scheduled") return;
+
+    await ctx.db.patch(args.changelogId, {
+      status: "published",
+      publishDate: changelog.scheduledPublishTime ?? Date.now(),
+      scheduledPublishTime: undefined,
+      scheduledFunctionId: undefined,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const cancelScheduledPublish = mutation({
+  args: {
+    changelogId: v.id("changelogs"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const changelog = await ctx.db.get(args.changelogId);
+    if (!changelog) {
+      throw new Error("Changelog not found");
+    }
+
+    if (changelog.status !== "scheduled") {
+      throw new Error("Changelog is not scheduled");
+    }
+
+    const project = await ctx.db.get(changelog.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const workspace = await ctx.db.get(project.workspaceId);
+    if (!workspace) {
+      throw new Error("Workspace not found");
+    }
+
+    if (workspace.ownerId !== user._id) {
+      throw new Error("Forbidden");
+    }
+
+    // Cancel the scheduled function
+    if (changelog.scheduledFunctionId) {
+      try {
+        await ctx.scheduler.cancel(changelog.scheduledFunctionId);
+      } catch {
+        // Already executed or canceled
+      }
+    }
+
+    // Revert to draft
+    await ctx.db.patch(args.changelogId, {
+      status: "draft",
+      scheduledPublishTime: undefined,
+      scheduledFunctionId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return args.changelogId;
+  },
+});
+export const unpublishChangelog = mutation({
+  args: {
+    changelogId: v.id("changelogs"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const changelog = await ctx.db.get(args.changelogId);
+    if (!changelog) {
+      throw new Error("Changelog not found");
+    }
+
+    if (changelog.status !== "published") {
+      throw new Error("Changelog is not published");
+    }
+
+    const project = await ctx.db.get(changelog.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const workspace = await ctx.db.get(project.workspaceId);
+    if (!workspace) {
+      throw new Error("Workspace not found");
+    }
+
+    if (workspace.ownerId !== user._id) {
+      throw new Error("Forbidden");
+    }
+
+    // Revert to draft — keeps publishDate so re-publishing preserves the original date
+    await ctx.db.patch(args.changelogId, {
+      status: "draft",
+      updatedAt: Date.now(),
+    });
+
+    return args.changelogId;
+  },
+});
+
+export const unpublishChangelog = mutation({
+  args: {
+    changelogId: v.id("changelogs"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const changelog = await ctx.db.get(args.changelogId);
+    if (!changelog) {
+      throw new Error("Changelog not found");
+    }
+
+    if (changelog.status !== "published") {
+      throw new Error("Changelog is not published");
+    }
+
+    const project = await ctx.db.get(changelog.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    const workspace = await ctx.db.get(project.workspaceId);
+    if (!workspace) {
+      throw new Error("Workspace not found");
+    }
+
+    if (workspace.ownerId !== user._id) {
+      throw new Error("Forbidden");
+    }
+
+    // Revert to draft — keeps publishDate so re-publishing preserves the original date
+    await ctx.db.patch(args.changelogId, {
+      status: "draft",
+      updatedAt: Date.now(),
+    });
 
     return args.changelogId;
   },
@@ -179,7 +391,7 @@ export const publishChangelog = mutation({
 export const getChangelogsByProject = query({
   args: {
     projectId: v.id("projects"),
-    status: v.optional(v.union(v.literal("draft"), v.literal("published"))),
+    status: v.optional(v.union(v.literal("draft"), v.literal("scheduled"), v.literal("published"))),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();

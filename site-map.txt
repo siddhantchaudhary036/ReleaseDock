@@ -4,7 +4,11 @@ Marketing
     Products
         1. Changelog - in app & email notifications & historical changelog
         2. Feedback/Surveys - in app & email surveys
-        3. Flook Style Onboarding tooltips?
+        3. Onboarding flows - in app onboarding tool tips for new & old features
+        4. notifications on top bar,
+        5. embeddable checklists
+        6. Follow up tips & tricks emails?
+          
         
     Pricing - featurelist, tier comparision chart, faq, 
 

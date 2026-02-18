@@ -109,6 +109,19 @@ function ChangelogItem({ entry, primaryColor }: ChangelogItemProps) {
 
   return (
     <div style={{ marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid #333' }}>
+      {entry.coverImageUrl && (
+        <img
+          src={entry.coverImageUrl}
+          alt=""
+          style={{
+            width: '100%',
+            height: '160px',
+            objectFit: 'cover',
+            borderRadius: '8px',
+            marginBottom: '12px',
+          }}
+        />
+      )}
       <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600', color: '#fff' }}>
         {entry.title}
       </h3>

@@ -1,0 +1,169 @@
+────────────────────────────────────────────────────────────────────────────────
+PHASE 1 — TABLE STAKES (what every competitor ships out of the box)
+────────────────────────────────────────────────────────────────────────────────
+
+0. remove the ability to upload videos. only embed.
+
+1. SCHEDULED PUBLISHING
+   Beamer, Headway, and FeatureBase all let you pick a future date/time and the
+   post goes live automatically. Add a date+time picker to the editor toolbar
+   and a server-side cron or delayed mutation that flips status at publish time.
+
+2. UNPUBLISH / REVERT TO DRAFT
+   Canny and FeatureBase let you pull a published post back to draft instantly.
+   Add an "Unpublish" button on the edit page for published entries that sets
+   status back to "draft" and hides it from the widget and public page.
+
+3. REACTIONS / EMOJI FEEDBACK
+   Beamer shows emoji reactions (👍 🎉 ❤️) under each post; AnnounceKit and
+   FeatureBase do the same. Add a reaction bar to the widget feed items and
+   public page entries, store counts per changelog, surface totals in dashboard.
+
+4. BASIC ANALYTICS (VIEW COUNTS + ENGAGEMENT)
+   AnnounceKit tracks views, clicks, and top-performing posts. Beamer has a
+   full analytics dashboard. Start simple: record a view event each time a
+   changelog is seen in the widget or public page, show view + reaction counts
+   on the changelog list in the dashboard.
+
+5. AUTO-SAVE DRAFTS
+   FeatureBase auto-saves as you type so nothing gets lost. Debounce editor
+   changes (e.g. every 5 seconds of inactivity) and silently persist the draft
+   to Convex. Show a subtle "Saved" / "Saving..." indicator near the title.
+
+6. FEATURED IMAGES / COVER IMAGES
+   Canny, FeatureBase, and Headway let you attach a hero image per changelog.
+   Add an optional cover image upload above the title in the editor. Display it
+   at the top of the public page entry and as a thumbnail in the widget feed.
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHASE 2 — CATEGORIES & ORGANIZATION (how competitors structure content)
+────────────────────────────────────────────────────────────────────────────────
+
+7. CATEGORIES (SEPARATE FROM LABELS)
+   LaunchNotes distinguishes categories (product areas: "iOS", "API", "Billing")
+   from labels (change types: "Feature", "Bugfix"). Categories drive subscriber
+   preferences and widget filtering. Labels stay as visual tags. Add a new
+   categories table, a management UI in settings, and a category picker in the
+   editor alongside the existing label chips.
+
+8. WIDGET CATEGORY FILTERING
+   LaunchNotes lets you configure each widget embed to show only specific
+   categories, so different pages of your app show relevant updates only.
+   Add a data-categories attribute to the script tag that filters the feed.
+   Dashboard shows a per-widget category selector in widget settings.
+
+9. SEARCH & FILTER ON PUBLIC PAGE
+   Canny and FeatureBase public pages have a search bar and category/label
+   filter dropdowns. Add a sticky filter bar at the top of the public changelog
+   page with a text search input and clickable category/label pills.
+
+10. PAGINATION / INFINITE SCROLL
+    Every competitor paginates their feeds. Currently you load all changelogs at
+    once. Add cursor-based pagination to the widget API and public page, loading
+    ~10 entries at a time with a "Load more" button or infinite scroll trigger.
+
+11. RSS / ATOM / JSON FEED
+    Headway, Canny, and AnnounceKit auto-generate RSS feeds for each project.
+    Add a /api/feed/:slug route to the HTTP router that returns an RSS 2.0 XML
+    document. Link it in the public page header with <link rel="alternate">.
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHASE 3 — NOTIFICATIONS & SUBSCRIBERS (the #1 gap vs. competitors)
+────────────────────────────────────────────────────────────────────────────────
+
+12. SUBSCRIBER / EMAIL LIST MANAGEMENT
+    Beamer, LaunchNotes, and AnnounceKit all maintain subscriber lists. Add a
+    subscribers table (email, name, preferences, source). Build a subscribers
+    page in the dashboard showing the list with search, import CSV, and manual
+    add. Let users subscribe from the public changelog page.
+
+13. EMAIL NOTIFICATIONS ON PUBLISH
+    Beamer and AnnounceKit send styled HTML emails when a changelog goes live.
+    Integrate an email service (Resend, Postmark, or SES). When a changelog is
+    published, send a branded email to all subscribers (or filtered by category
+    preferences). Add an email preview step before publishing.
+
+14. EMAIL DIGEST / WEEKLY ROUNDUP
+    LaunchNotes offers digest emails that bundle multiple updates. Add a
+    scheduled job that collects changelogs published in the last week and sends
+    a single digest email to subscribers who opted into the digest frequency.
+
+15. SUBSCRIBE WIDGET IN THE EMBED
+    AnnounceKit and Beamer let users enter their email directly in the widget
+    feed. Add an email input at the bottom of the widget feed panel with a
+    "Get notified" CTA. On submit, create a subscriber record and confirm.
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHASE 4 — SEGMENTATION & TARGETING (the premium differentiator)
+────────────────────────────────────────────────────────────────────────────────
+
+16. USER IDENTITY PASSING (WIDGET)
+    Beamer accepts user attributes via the script tag (data-user-id, data-email,
+    data-plan, plus custom properties). Update the widget script to accept and
+    forward user attributes to the API so the backend knows who is viewing.
+
+17. SEGMENTS BUILDER
+    Beamer lets you create segments with AND/OR filter rules on user attributes
+    (e.g. plan = "pro" AND country = "US"). Add a segments table and a visual
+    segment builder UI in the dashboard where you define filter conditions.
+
+18. TARGETED CHANGELOG DELIVERY
+    Beamer and LaunchNotes let you assign segments to each changelog post so
+    only matching users see it. Add a segment picker in the changelog editor.
+    The widget API filters results server-side based on the viewer's attributes
+    matching the assigned segment rules.
+
+19. COHORTS (MANUAL AUDIENCE LISTS)
+    LaunchNotes has "cohorts" — hand-picked subscriber lists for targeted email
+    sends. Add a cohorts management page where you create named lists, add
+    subscribers by email/domain, and select cohorts as recipients when publishing.
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHASE 5 — INTEGRATIONS & POWER FEATURES
+────────────────────────────────────────────────────────────────────────────────
+
+20. SLACK / TEAMS / WEBHOOK NOTIFICATIONS
+    Beamer and LaunchNotes push to Slack and Teams on publish. Add a webhooks
+    settings page where users configure a Slack incoming webhook URL or generic
+    webhook. Fire a POST with changelog details on publish.
+
+21. AI WRITING ASSISTANT
+    Beamer, AnnounceKit, and FeatureBase offer AI-powered draft generation.
+    Add a "Draft with AI" button in the editor that takes a short description
+    or bullet points and generates a polished changelog entry using an LLM API.
+
+22. COMMENTS ON CHANGELOG ENTRIES
+    Beamer allows threaded comments on posts. Add a comments section below each
+    entry on the public page and in the widget. Store comments with author info
+    and timestamps. Show comment count in the dashboard changelog list.
+
+23. MULTI-LANGUAGE SUPPORT
+    AnnounceKit supports localized changelogs in multiple languages. Add a
+    locale field to changelogs and a language switcher on the public page and
+    widget. Allow creating translated versions of the same changelog entry.
+
+24. CUSTOM DOMAIN FOR PUBLIC PAGE
+    LaunchNotes and AnnounceKit let you serve the public changelog on your own
+    domain (e.g. updates.yourapp.com). Add CNAME verification in settings and
+    configure routing so the public page serves under the custom domain.
+
+25. CHANGELOG TEMPLATES
+    FeatureBase and Notion offer reusable templates for common update types.
+    Add a templates library in settings where users save and reuse content
+    structures (e.g. "Feature Release", "Hotfix", "Monthly Roundup").
+
+
+────────────────────────────────────────────────────────────────────────────────
+NOTES
+────────────────────────────────────────────────────────────────────────────────
+- Phases 1-2 are catch-up work. Most paying customers expect these.
+- Phase 3 (email) is the single biggest revenue unlock — it's what makes
+  changelog tools sticky and justifies paid tiers.
+- Phase 4 (segmentation) is the premium play. Beamer charges $99+/mo for it.
+  Build it last but design the data model early so you don't paint yourself
+  into a corner.
+- Phase 5 is polish and expansion. Prioritize based on user requests.

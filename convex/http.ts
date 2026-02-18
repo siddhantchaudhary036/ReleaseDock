@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
+import { resolveStorageUrl } from "./storage";
 
 const http = httpRouter();
 
@@ -62,18 +63,23 @@ http.route({
     const labelMap = new Map(labels.map((label) => [label._id, label]));
 
     // Format response with title, content, publishDate, and labels
-    const entries = changelogs.map((changelog) => ({
-      title: changelog.title,
-      content: changelog.content,
-      publishDate: changelog.publishDate ?? 0,
-      labels: changelog.labelIds
-        .map((labelId) => labelMap.get(labelId))
-        .filter((label) => label !== undefined)
-        .map((label) => ({
-          name: label!.name,
-          color: label!.color,
-        })),
-    }));
+    const entries = await Promise.all(
+      changelogs.map(async (changelog) => ({
+        title: changelog.title,
+        content: changelog.content,
+        publishDate: changelog.publishDate ?? 0,
+        coverImageUrl: changelog.coverImageId
+          ? await resolveStorageUrl(ctx, changelog.coverImageId)
+          : null,
+        labels: changelog.labelIds
+          .map((labelId) => labelMap.get(labelId))
+          .filter((label) => label !== undefined)
+          .map((label) => ({
+            name: label!.name,
+            color: label!.color,
+          })),
+      }))
+    );
 
     // Return response with CORS headers
     return new Response(
@@ -168,18 +174,23 @@ http.route({
     const labelMap = new Map(allLabels.map((label) => [label._id, label]));
 
     // Format response with title, content, publishDate, and labels
-    const entries = allChangelogs.map((changelog) => ({
-      title: changelog.title,
-      content: changelog.content,
-      publishDate: changelog.publishDate ?? 0,
-      labels: changelog.labelIds
-        .map((labelId) => labelMap.get(labelId))
-        .filter((label) => label !== undefined)
-        .map((label) => ({
-          name: label!.name,
-          color: label!.color,
-        })),
-    }));
+    const entries = await Promise.all(
+      allChangelogs.map(async (changelog) => ({
+        title: changelog.title,
+        content: changelog.content,
+        publishDate: changelog.publishDate ?? 0,
+        coverImageUrl: changelog.coverImageId
+          ? await resolveStorageUrl(ctx, changelog.coverImageId)
+          : null,
+        labels: changelog.labelIds
+          .map((labelId) => labelMap.get(labelId))
+          .filter((label) => label !== undefined)
+          .map((label) => ({
+            name: label!.name,
+            color: label!.color,
+          })),
+      }))
+    );
 
     // Return response
     return new Response(

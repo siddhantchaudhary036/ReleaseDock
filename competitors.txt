@@ -1,0 +1,44 @@
+Pure changelog / release notes tools (direct competitors to your core product):
+
+Beamer — The 800-pound gorilla. Changelog + in-app widget + email notifications + segmentation + "Boosters" (top bars, popups, snippets). Study their Boosters feature closely — it's the bridge between changelog and in-app messaging. They charge $99/mo for segmentation, which tells you where the money is.
+AnnounceKit — Strong on multi-language support, analytics, and segmentation. Their widget customization is best-in-class. Good reference for how to do i18n and detailed view/click analytics.
+LaunchNotes — Enterprise-focused. Categories vs labels distinction, cohort-based targeting, subscriber management. Study how they separate "categories" (product areas) from "labels" (change types) — it's a smart taxonomy.
+Headway — Simple, clean, free tier. RSS feeds, custom domains. Good reference for the minimal-but-polished end of the spectrum.
+FeatureBase — Changelog + feedback + roadmap combo. AI writing assistant, auto-save, emoji reactions. Study their editor UX — it's smooth.
+Canny — Feedback-first but has a solid changelog. Public page with search/filter, comments on entries. Good reference for the public changelog page UX.
+Changefeed — Indie/bootstrapped. Zapier integration for automating changelog creation from GitHub PRs. Interesting angle on automation.
+ChangeCrab — Newer player. AI-drafted updates, claims to "solve support tickets before they open" by proactively surfacing relevant changelogs. Interesting positioning.
+Worknotes.ai — AI-first approach. Pulls from Linear/Jira tickets and auto-generates changelog entries. Starts at $9/mo. Study their "tickets to updates" flow — it's the AI writing angle done well.
+Released.so — Jira-native. Auto-generates release notes from Jira tickets, publishes to widget/Confluence/Slack. If you ever want PM tool integrations, this is the reference.
+ReleaseNotes.io — "Smart Releases" that auto-create and distribute notes. Email notifications built in. Simple but effective.
+Supahub — Changelog + feedback + roadmap. Nothing groundbreaking but a clean all-in-one reference.
+ProductLogz — Lightweight changelog tool. Good for studying the minimal viable feature set.
+Product adoption / in-app engagement platforms (where your Products 3-5 live):
+
+Userpilot — Banners, modals, slideouts, spotlights, release notes, NPS surveys, product analytics. No-code. Study their announcement types — they have the widest variety of in-app message formats. $249+/mo, so there's room to undercut.
+ProductFruits — AI-powered tours, onboarding checklists, feedback widgets, announcements, knowledge base. No-code. Interesting because they bundle changelog-adjacent features (announcements, checklists) at a lower price point than Appcues/Userpilot.
+Hopscotch — Affordable product tours, tooltips, modals, surveys. Positions itself as the budget Appcues. Good reference for "how simple can you make onboarding tools and still be useful."
+Appcues — The gold standard for product tours, checklists, microsurveys, and "Launchpad" (resource center). Study their Workflows feature for trigger-based cross-channel automation.
+Chameleon.io — Tours, tooltips, microsurveys, "Launchers" (in-app resource center / command palette). Their Launchers concept is worth studying — it's a searchable panel that combines help docs, changelogs, and checklists.
+Dopt — Developer-first. React component library for building onboarding flows, checklists, and announcements. No visual editor — it's all code. Study this if you want to go the dev-tools route instead of no-code.
+Userflow — Tours, checklists, surveys, resource center. Clean UI. Good middle ground between Appcues complexity and Hopscotch simplicity.
+UserGuiding — Onboarding checklists with progress indicators, tooltips, resource center. Budget-friendly.
+Notification infrastructure (relevant for your email/notification products):
+
+Knock.app — Developer notification infrastructure. Cross-channel (push, in-app, email, SMS, Slack). Workflow engine with batching, throttling, delays. Study their API design if you're building notification workflows.
+SuprSend — Similar to Knock but positions more toward product teams. Unified API across email, SMS, push, in-app inbox, WhatsApp, Slack, Teams. Their "App Inbox" component is a good reference for building a persistent notification center.
+Loops.so — Developer-first email platform with event triggers. Study their approach to behavior-triggered email sequences.
+Customer.io — Event-driven messaging automation. The most mature reference for "if user does X, send Y across Z channels."
+All-in-one platforms (the "super app" approach):
+
+UserOrbit — Newer player combining changelogs, in-app announcements, product tours, feedback, roadmaps, surveys, and analytics in one platform. Multi-language support. Basically trying to be Beamer + Appcues + Canny in one. Worth watching closely because they're attempting the same bundle you're planning.
+Pendo — Enterprise. Product analytics + in-app guides + feedback. Study their analytics — they're the best at tying feature adoption data to in-app messaging.
+Intercom — The OG. Chat, bots, banners, product tours, help center, email. Massive and expensive, but their "Series" (multi-step automated workflows) is the best reference for cross-channel automation.
+The ones I'd prioritize studying based on your roadmap:
+
+Beamer — Your most direct competitor for the changelog + in-app notification combo
+ProductFruits — Closest to your planned product bundle at an accessible price point
+UserOrbit — They're building almost exactly what your site-map describes
+Dopt — If you want the developer-first angle instead of no-code
+Knock.app / SuprSend — For notification infrastructure patterns when you build email + cross-channel
+Hopscotch — For keeping onboarding tools simple and affordable

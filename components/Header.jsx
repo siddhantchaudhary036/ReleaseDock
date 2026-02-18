@@ -217,3 +217,397 @@ function IconClose({ size = 24 }) {
     </svg>
   );
 }
+
+/* ─── Header component ─── */
+export default function Header() {
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <>
+      <nav
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          backgroundColor: scrolled ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.95)",
+          backdropFilter: scrolled ? "blur(16px) saturate(180%)" : "blur(8px)",
+          WebkitBackdropFilter: scrolled ? "blur(16px) saturate(180%)" : "blur(8px)",
+          borderBottom: `1px solid ${scrolled ? theme.neutral.border : "transparent"}`,
+          transition: "background-color 0.3s ease, border-color 0.3s ease, backdrop-filter 0.3s ease",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1120,
+            margin: "0 auto",
+            padding: "0 24px",
+            height: 64,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          {/* Logo */}
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: theme.radius.md,
+                backgroundColor: theme.brand.primary,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span style={{ color: theme.text.inverse, fontWeight: 700, fontSize: 16 }}>R</span>
+            </div>
+            <span style={{ fontWeight: 600, fontSize: 18, color: theme.text.primary }}>
+              ReleaseDock
+            </span>
+          </Link>
+
+          {/* Desktop nav */}
+          <div className="header-desktop-nav" style={{ display: "flex", alignItems: "center", gap: 2 }}>
+            {/* Products dropdown */}
+            <NavDropdown label="Products">
+              <DropdownItem
+                href="/products/changelog"
+                icon={<IconChangelog />}
+                title="Changelog"
+                description="In-app, email & historical changelog"
+              />
+              <DropdownItem
+                href="/products/feedback"
+                icon={<IconFeedback />}
+                title="Feedback & Surveys"
+                description="In-app & email surveys"
+              />
+              <DropdownItem
+                href="/products/onboarding"
+                icon={<IconTooltip />}
+                title="Onboarding Tooltips"
+                description="In-app tooltips for new & old features"
+              />
+            </NavDropdown>
+
+            {/* Pricing */}
+            <Link
+              href="/pricing"
+              style={{
+                padding: "6px 12px",
+                borderRadius: theme.radius.md,
+                fontSize: 14,
+                fontWeight: 500,
+                color: theme.text.secondary,
+                textDecoration: "none",
+                transition: "color 0.15s, background-color 0.15s",
+              }}
+              className="nav-link"
+            >
+              Pricing
+            </Link>
+
+            {/* Resources dropdown */}
+            <NavDropdown label="Resources">
+              <DropdownItem
+                href="/resources/help"
+                icon={<IconBook />}
+                title="Help Center"
+                description="Guides and support articles"
+              />
+              <DropdownItem
+                href="/resources/docs"
+                icon={<IconCode />}
+                title="Developer Docs"
+                description="API reference and integration guides"
+              />
+              <DropdownItem
+                href="/resources/blog"
+                icon={<IconBlog />}
+                title="Blog"
+                description="Product updates and insights"
+              />
+              <DropdownItem
+                href="/resources/about"
+                icon={<IconUsers />}
+                title="About Us"
+                description="Our story and team"
+              />
+            </NavDropdown>
+
+            {/* Contact */}
+            <Link
+              href="/contact"
+              style={{
+                padding: "6px 12px",
+                borderRadius: theme.radius.md,
+                fontSize: 14,
+                fontWeight: 500,
+                color: theme.text.secondary,
+                textDecoration: "none",
+                transition: "color 0.15s, background-color 0.15s",
+              }}
+              className="nav-link"
+            >
+              Contact
+            </Link>
+
+            {/* What's New */}
+            <Link
+              href="/whats-new"
+              style={{
+                padding: "6px 12px",
+                borderRadius: theme.radius.md,
+                fontSize: 14,
+                fontWeight: 500,
+                color: theme.text.secondary,
+                textDecoration: "none",
+                transition: "color 0.15s, background-color 0.15s",
+              }}
+              className="nav-link"
+            >
+              What&apos;s New
+            </Link>
+          </div>
+
+          {/* Auth buttons (desktop) */}
+          <div className="header-desktop-nav" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <SignedOut>
+              <SignInButton mode="modal">
+                <button
+                  style={{
+                    padding: "8px 18px",
+                    borderRadius: theme.radius.full,
+                    border: `1px solid ${theme.neutral.border}`,
+                    backgroundColor: "transparent",
+                    color: theme.text.primary,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "background-color 0.15s, border-color 0.15s",
+                  }}
+                  className="btn-secondary"
+                >
+                  Sign in
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button
+                  style={{
+                    padding: "8px 18px",
+                    borderRadius: theme.radius.full,
+                    border: "none",
+                    backgroundColor: theme.brand.primary,
+                    color: theme.text.inverse,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "background-color 0.15s",
+                  }}
+                  className="btn-primary"
+                >
+                  Get started
+                </button>
+              </SignUpButton>
+            </SignedOut>
+            <SignedIn>
+              <Link
+                href="/dashboard"
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: theme.radius.full,
+                  backgroundColor: theme.brand.primary,
+                  color: theme.text.inverse,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  textDecoration: "none",
+                  display: "inline-block",
+                  transition: "background-color 0.15s",
+                }}
+                className="btn-primary"
+              >
+                Dashboard
+              </Link>
+            </SignedIn>
+          </div>
+
+          {/* Mobile hamburger */}
+          <button
+            className="header-mobile-toggle"
+            onClick={() => setMobileOpen((o) => !o)}
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            style={{
+              display: "none",
+              padding: 8,
+              border: "none",
+              backgroundColor: "transparent",
+              color: theme.text.primary,
+              cursor: "pointer",
+            }}
+          >
+            {mobileOpen ? <IconClose /> : <IconMenu />}
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile menu overlay */}
+      {mobileOpen && (
+        <div
+          className="header-mobile-menu"
+          style={{
+            position: "fixed",
+            top: 64,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 49,
+            backgroundColor: "rgba(255,255,255,0.98)",
+            backdropFilter: "blur(12px)",
+            padding: "24px",
+            overflowY: "auto",
+            animation: "dropdownFadeIn 0.2s ease",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: theme.text.tertiary, padding: "8px 0", textTransform: "uppercase", letterSpacing: "0.05em" }}>Products</div>
+            <MobileLink href="/products/changelog" onClick={() => setMobileOpen(false)}>Changelog</MobileLink>
+            <MobileLink href="/products/feedback" onClick={() => setMobileOpen(false)}>Feedback & Surveys</MobileLink>
+            <MobileLink href="/products/onboarding" onClick={() => setMobileOpen(false)}>Onboarding Tooltips</MobileLink>
+
+            <div style={{ height: 1, backgroundColor: theme.neutral.border, margin: "12px 0" }} />
+
+            <MobileLink href="/pricing" onClick={() => setMobileOpen(false)}>Pricing</MobileLink>
+
+            <div style={{ height: 1, backgroundColor: theme.neutral.border, margin: "12px 0" }} />
+
+            <div style={{ fontSize: 12, fontWeight: 600, color: theme.text.tertiary, padding: "8px 0", textTransform: "uppercase", letterSpacing: "0.05em" }}>Resources</div>
+            <MobileLink href="/resources/help" onClick={() => setMobileOpen(false)}>Help Center</MobileLink>
+            <MobileLink href="/resources/docs" onClick={() => setMobileOpen(false)}>Developer Docs</MobileLink>
+            <MobileLink href="/resources/blog" onClick={() => setMobileOpen(false)}>Blog</MobileLink>
+            <MobileLink href="/resources/about" onClick={() => setMobileOpen(false)}>About Us</MobileLink>
+
+            <div style={{ height: 1, backgroundColor: theme.neutral.border, margin: "12px 0" }} />
+
+            <MobileLink href="/contact" onClick={() => setMobileOpen(false)}>Contact</MobileLink>
+            <MobileLink href="/whats-new" onClick={() => setMobileOpen(false)}>What&apos;s New</MobileLink>
+
+            <div style={{ height: 1, backgroundColor: theme.neutral.border, margin: "12px 0" }} />
+
+            <div style={{ display: "flex", gap: 10, paddingTop: 8 }}>
+              <SignedOut>
+                <SignInButton mode="modal">
+                  <button
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      borderRadius: theme.radius.md,
+                      border: `1px solid ${theme.neutral.border}`,
+                      backgroundColor: "transparent",
+                      color: theme.text.primary,
+                      fontSize: 14,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Sign in
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      borderRadius: theme.radius.md,
+                      border: "none",
+                      backgroundColor: theme.brand.primary,
+                      color: theme.text.inverse,
+                      fontSize: 14,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Get started
+                  </button>
+                </SignUpButton>
+              </SignedOut>
+              <SignedIn>
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileOpen(false)}
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    borderRadius: theme.radius.md,
+                    backgroundColor: theme.brand.primary,
+                    color: theme.text.inverse,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    textDecoration: "none",
+                    textAlign: "center",
+                  }}
+                >
+                  Dashboard
+                </Link>
+              </SignedIn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes dropdownFadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .nav-link:hover {
+          color: ${theme.text.primary} !important;
+          background-color: ${theme.neutral.hover} !important;
+        }
+        .dropdown-item:hover {
+          background-color: ${theme.neutral.hover} !important;
+        }
+        .btn-primary:hover {
+          background-color: ${theme.brand.primaryHover} !important;
+        }
+        .btn-secondary:hover {
+          background-color: ${theme.neutral.hover} !important;
+          border-color: ${theme.neutral.subtle} !important;
+        }
+        @media (max-width: 860px) {
+          .header-desktop-nav { display: none !important; }
+          .header-mobile-toggle { display: flex !important; }
+        }
+      `}</style>
+    </>
+  );
+}
+
+function MobileLink({ href, onClick, children }) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      style={{
+        padding: "10px 8px",
+        borderRadius: theme.radius.md,
+        fontSize: 15,
+        fontWeight: 500,
+        color: theme.text.primary,
+        textDecoration: "none",
+        transition: "background-color 0.12s",
+      }}
+      className="dropdown-item"
+    >
+      {children}
+    </Link>
+  );
+}

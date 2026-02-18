@@ -40,7 +40,7 @@ function formatDate(timestamp) {
 import theme from "@/constants/theme";
 
 export default async function PublicChangelogPage({ params }) {
-  const { slug } = params;
+  const { slug } = await params;
   const data = await fetchChangelogData(slug);
   if (!data) notFound();
 
@@ -97,9 +97,22 @@ export default async function PublicChangelogPage({ params }) {
                   backgroundColor: theme.neutral.white,
                   borderRadius: theme.radius.lg,
                   border: `1px solid ${theme.neutral.border}`,
-                  padding: "32px",
+                  overflow: "hidden",
                 }}
               >
+                {entry.coverImageUrl && (
+                  <img
+                    src={entry.coverImageUrl}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      height: "280px",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                )}
+                <div style={{ padding: "32px" }}>
                 <div style={{ marginBottom: "24px" }}>
                   <h2 style={{ fontSize: "24px", fontWeight: 600, color: theme.text.primary, marginBottom: "12px" }}>
                     {entry.title}
@@ -133,6 +146,7 @@ export default async function PublicChangelogPage({ params }) {
                 <div className="prose max-w-none">
                   <ChangelogRenderer content={entry.content} />
                 </div>
+                </div>
               </article>
             ))}
           </div>
@@ -162,7 +176,7 @@ export default async function PublicChangelogPage({ params }) {
 }
 
 export async function generateMetadata({ params }) {
-  const { slug } = params;
+  const { slug } = await params;
   try {
     const data = await fetchChangelogData(slug);
     if (!data) return { title: "Changelog Not Found" };

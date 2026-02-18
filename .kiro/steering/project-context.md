@@ -23,6 +23,7 @@ We are building a minimalistic, clean, and professional tool where users can:
 - Frill
 - LaunchNotes
 - FeatureBase
+- Appcues - major competitor that is enterprise, we want to make a few features like them and sell for cheaper.
 
 Some of these competitors also handle things beyond changelogs (feedback boards, roadmaps, etc.), but our focus right now is changelogs only. We may expand scope later.
 

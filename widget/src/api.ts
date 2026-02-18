@@ -7,6 +7,7 @@ export interface ChangelogEntry {
   title: string;
   content: any; // BlockNote JSON
   publishDate: number;
+  coverImageUrl: string | null;
   labels: ChangelogLabel[];
 }
 

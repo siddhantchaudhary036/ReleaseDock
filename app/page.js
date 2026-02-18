@@ -1,11 +1,12 @@
 import Link from "next/link";
 import {
-  SignInButton,
   SignUpButton,
   SignedIn,
   SignedOut,
 } from "@clerk/nextjs";
 import theme from "../constants/theme";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
 
 /* ─── Inline icon components (no external dep) ─── */
 
@@ -113,7 +114,7 @@ function FeatureCard({ icon, title, description }) {
 
 /* ─── Step card for "How it works" ─── */
 
-function StepCard({ number, title, description, isLast }) {
+function StepCard({ number, title, description }) {
   return (
     <div style={{ textAlign: "center", flex: 1, padding: "0 16px", position: "relative", minWidth: 220 }}>
       <div
@@ -171,106 +172,7 @@ export default function Home() {
         fontFamily: "var(--font-geist-sans), system-ui, sans-serif",
       }}
     >
-      {/* ── Navbar ── */}
-      <nav
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-          backgroundColor: "rgba(255,255,255,0.85)",
-          backdropFilter: "blur(12px)",
-          borderBottom: `1px solid ${theme.neutral.border}`,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1120,
-            margin: "0 auto",
-            padding: "0 24px",
-            height: 64,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: theme.radius.md,
-                backgroundColor: theme.brand.primary,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <span style={{ color: theme.text.inverse, fontWeight: 700, fontSize: 16 }}>R</span>
-            </div>
-            <span style={{ fontWeight: 600, fontSize: 18, color: theme.text.primary }}>
-              ReleaseDock
-            </span>
-          </Link>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <SignedOut>
-              <SignInButton mode="modal">
-                <button
-                  style={{
-                    padding: "8px 20px",
-                    borderRadius: theme.radius.full,
-                    border: `1px solid ${theme.neutral.border}`,
-                    backgroundColor: "transparent",
-                    color: theme.text.primary,
-                    fontSize: 14,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    transition: "background-color 0.15s",
-                  }}
-                >
-                  Sign in
-                </button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <button
-                  style={{
-                    padding: "8px 20px",
-                    borderRadius: theme.radius.full,
-                    border: "none",
-                    backgroundColor: theme.brand.primary,
-                    color: theme.text.inverse,
-                    fontSize: 14,
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    transition: "background-color 0.15s",
-                  }}
-                >
-                  Get started
-                </button>
-              </SignUpButton>
-            </SignedOut>
-            <SignedIn>
-              <Link
-                href="/dashboard"
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: theme.radius.full,
-                  border: "none",
-                  backgroundColor: theme.brand.primary,
-                  color: theme.text.inverse,
-                  fontSize: 14,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  textDecoration: "none",
-                  display: "inline-block",
-                }}
-              >
-                Dashboard
-              </Link>
-            </SignedIn>
-          </div>
-        </div>
-      </nav>
+      <Header />
 
       {/* ── Hero ── */}
       <section
@@ -867,18 +769,7 @@ export default function Home() {
         </SignedIn>
       </section>
 
-      {/* ── Footer ── */}
-      <footer
-        style={{
-          borderTop: `1px solid ${theme.neutral.border}`,
-          padding: "32px 24px",
-          textAlign: "center",
-        }}
-      >
-        <p style={{ fontSize: 14, color: theme.text.tertiary, margin: 0 }}>
-          © {new Date().getFullYear()} ReleaseDock. All rights reserved.
-        </p>
-      </footer>
+      <Footer />
 
       {/* Hover style for feature cards + responsive */}
       <style>{`
