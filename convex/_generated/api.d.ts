@@ -9,6 +9,7 @@
  */
 
 import type * as changelogs from "../changelogs.js";
+import type * as http from "../http.js";
 import type * as labels from "../labels.js";
 import type * as onboarding from "../onboarding.js";
 import type * as projects from "../projects.js";
@@ -24,6 +25,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   changelogs: typeof changelogs;
+  http: typeof http;
   labels: typeof labels;
   onboarding: typeof onboarding;
   projects: typeof projects;

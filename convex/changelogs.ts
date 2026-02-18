@@ -336,58 +336,6 @@ export const unpublishChangelog = mutation({
   },
 });
 
-export const unpublishChangelog = mutation({
-  args: {
-    changelogId: v.id("changelogs"),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthorized");
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    const changelog = await ctx.db.get(args.changelogId);
-    if (!changelog) {
-      throw new Error("Changelog not found");
-    }
-
-    if (changelog.status !== "published") {
-      throw new Error("Changelog is not published");
-    }
-
-    const project = await ctx.db.get(changelog.projectId);
-    if (!project) {
-      throw new Error("Project not found");
-    }
-
-    const workspace = await ctx.db.get(project.workspaceId);
-    if (!workspace) {
-      throw new Error("Workspace not found");
-    }
-
-    if (workspace.ownerId !== user._id) {
-      throw new Error("Forbidden");
-    }
-
-    // Revert to draft — keeps publishDate so re-publishing preserves the original date
-    await ctx.db.patch(args.changelogId, {
-      status: "draft",
-      updatedAt: Date.now(),
-    });
-
-    return args.changelogId;
-  },
-});
-
 export const getChangelogsByProject = query({
   args: {
     projectId: v.id("projects"),

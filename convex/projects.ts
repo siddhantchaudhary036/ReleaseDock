@@ -200,18 +200,6 @@ export const updateWidgetSettings = mutation({
   },
 });
 
-export const getProjectByApiKey = query({
-  args: {
-    apiKey: v.string(),
-  },
-  handler: async (ctx, args) => {
-    // Public query - no auth required (used by HTTP actions)
-    return await ctx.db
-      .query("projects")
-      .withIndex("by_api_key", (q) => q.eq("apiKey", args.apiKey))
-      .unique();
-  },
-});
 
 
 export const getProjectByApiKey = query({
