@@ -1,11 +1,48 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import StatusFilter from "../../../components/StatusFilter";
 import Link from "next/link";
 import theme from "../../../constants/theme";
+
+function CopyLinkButton({ url }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      title={copied ? "Copied!" : "Copy changelog page link"}
+      className="copy-link-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors"
+      style={{
+        backgroundColor: copied ? theme.status.successLight : theme.neutral.white,
+        color: copied ? theme.status.success : theme.text.muted,
+        border: `1px solid ${copied ? theme.status.success : theme.neutral.border}`,
+        cursor: "pointer",
+        fontSize: 13,
+      }}
+    >
+      {copied ? (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+      ) : (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.54a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.34 8.798" />
+        </svg>
+      )}
+      {copied ? "Copied" : "Copy link"}
+    </button>
+  );
+}
 
 function CoverThumb({ storageId }) {
   const url = useQuery(api.storage.getStorageUrl, { storageId });
@@ -23,6 +60,7 @@ function CoverThumb({ storageId }) {
 export default function ChangelogsPage() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const { isAuthenticated } = useConvexAuth();
 
   useEffect(() => {
     const savedProjectId = localStorage.getItem("currentProjectId");
@@ -31,14 +69,30 @@ export default function ChangelogsPage() {
 
   const changelogs = useQuery(
     api.changelogs.getChangelogsByProject,
-    currentProjectId
+    isAuthenticated && currentProjectId
       ? { projectId: currentProjectId, status: statusFilter === "all" ? undefined : statusFilter }
       : "skip"
   );
 
+  const currentProject = useQuery(
+    api.projects.getProjectById,
+    isAuthenticated && currentProjectId ? { projectId: currentProjectId } : "skip"
+  );
+
+  const workspace = useQuery(
+    api.workspaces.getWorkspaceById,
+    currentProject?.workspaceId ? { workspaceId: currentProject.workspaceId } : "skip"
+  );
+
+  const hostedPageUrl = workspace?.slug
+    ? typeof window !== "undefined"
+      ? `${window.location.origin}/changelog/${workspace.slug}`
+      : `/changelog/${workspace.slug}`
+    : null;
+
   const labels = useQuery(
     api.labels.getLabelsByProject,
-    currentProjectId ? { projectId: currentProjectId } : "skip"
+    isAuthenticated && currentProjectId ? { projectId: currentProjectId } : "skip"
   );
 
   const labelMap =
@@ -54,7 +108,7 @@ export default function ChangelogsPage() {
   // Counts for filter badges
   const allChangelogs = useQuery(
     api.changelogs.getChangelogsByProject,
-    currentProjectId ? { projectId: currentProjectId } : "skip"
+    isAuthenticated && currentProjectId ? { projectId: currentProjectId } : "skip"
   );
   const counts = {
     all: allChangelogs?.length || 0,
@@ -92,21 +146,46 @@ export default function ChangelogsPage() {
             Manage and publish your product updates
           </p>
         </div>
-        <Link
-          href="/dashboard/changelogs/new"
-          className="new-changelog-btn flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-          style={{
-            backgroundColor: theme.brand.primary,
-            color: theme.text.inverse,
-            textDecoration: "none",
-            fontSize: 13,
-          }}
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          New changelog
-        </Link>
+        <div className="flex items-center gap-2">
+          {hostedPageUrl && (
+            <>
+              <CopyLinkButton url={hostedPageUrl} />
+              <a
+                href={hostedPageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="preview-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: theme.neutral.white,
+                  color: theme.text.muted,
+                  border: `1px solid ${theme.neutral.border}`,
+                  textDecoration: "none",
+                  fontSize: 13,
+                }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+                Preview
+              </a>
+            </>
+          )}
+          <Link
+            href="/dashboard/changelogs/new"
+            className="new-changelog-btn flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: theme.brand.primary,
+              color: theme.text.inverse,
+              textDecoration: "none",
+              fontSize: 13,
+            }}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            New changelog
+          </Link>
+        </div>
       </div>
 
       {/* Filter bar */}
@@ -257,6 +336,12 @@ export default function ChangelogsPage() {
         }
         .new-changelog-btn:hover {
           background-color: ${theme.brand.primaryHover} !important;
+        }
+        .copy-link-btn:hover {
+          background-color: ${theme.neutral.hover} !important;
+        }
+        .preview-btn:hover {
+          background-color: ${theme.neutral.hover} !important;
         }
       `}</style>
     </div>

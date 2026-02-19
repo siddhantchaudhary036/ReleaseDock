@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback, useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ChangelogEditor from "../../../../components/ChangelogEditor";
 import CoverImageUpload from "../../../../components/CoverImageUpload";
+import PublishModal from "../../../../components/PublishModal";
+import AutoSaveIndicator from "../../../../components/AutoSaveIndicator";
+import { useAutoSave } from "../../../../hooks/useAutoSave";
 import { serializeBlocks } from "../../../../lib/blocknote";
 import theme from "../../../../constants/theme";
 
@@ -21,13 +24,40 @@ export default function EditChangelogPage({ params }) {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
-  const [scheduledTime, setScheduledTime] = useState("");
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
 
   const updateChangelog = useMutation(api.changelogs.updateChangelog);
   const publishChangelog = useMutation(api.changelogs.publishChangelog);
   const cancelSchedule = useMutation(api.changelogs.cancelScheduledPublish);
   const unpublishChangelog = useMutation(api.changelogs.unpublishChangelog);
+
+  // Refs to hold latest state for auto-save without re-creating the callback
+  const titleRef = useRef(title);
+  const contentRef = useRef(content);
+  const labelIdsRef = useRef(selectedLabelIds);
+  const coverImageRef = useRef(coverImageId);
+  useEffect(() => { titleRef.current = title; }, [title]);
+  useEffect(() => { contentRef.current = content; }, [content]);
+  useEffect(() => { labelIdsRef.current = selectedLabelIds; }, [selectedLabelIds]);
+  useEffect(() => { coverImageRef.current = coverImageId; }, [coverImageId]);
+
+  const autoSaveFn = useCallback(async () => {
+    if (!titleRef.current.trim()) return; // don't save empty titles
+    await updateChangelog({
+      changelogId,
+      title: titleRef.current.trim(),
+      content: contentRef.current,
+      labelIds: labelIdsRef.current,
+      coverImageId: coverImageRef.current,
+    });
+  }, [changelogId, updateChangelog]);
+
+  const { autoSaveStatus, triggerAutoSave, flushAutoSave } = useAutoSave(
+    autoSaveFn,
+    5000,
+    isLoaded // only auto-save once initial data is loaded
+  );
 
   useEffect(() => {
     const savedProjectId = localStorage.getItem("currentProjectId");
@@ -44,6 +74,11 @@ export default function EditChangelogPage({ params }) {
     currentProjectId ? { projectId: currentProjectId } : "skip"
   );
 
+  const currentProject = useQuery(
+    api.projects.getProjectById,
+    currentProjectId ? { projectId: currentProjectId } : "skip"
+  );
+
   useEffect(() => {
     if (currentChangelog && !isLoaded) {
       setTitle(currentChangelog.title || "");
@@ -51,16 +86,13 @@ export default function EditChangelogPage({ params }) {
       setSelectedLabelIds(currentChangelog.labelIds || []);
       setCoverImageId(currentChangelog.coverImageId || undefined);
       setCurrentProjectId(currentChangelog.projectId);
-      if (currentChangelog.scheduledPublishTime) {
-        const d = new Date(currentChangelog.scheduledPublishTime);
-        setScheduledTime(d.toISOString().slice(0, 16));
-      }
       setIsLoaded(true);
     }
   }, [currentChangelog, isLoaded]);
 
-  const handleSave = async (shouldPublish = false) => {
+  const handleSave = async (shouldPublish = false, scheduledPublishTime) => {
     if (!title.trim()) { alert("Please enter a title"); return; }
+    flushAutoSave();
     setIsSaving(true);
     try {
       await updateChangelog({
@@ -71,11 +103,9 @@ export default function EditChangelogPage({ params }) {
         coverImageId,
       });
       if (shouldPublish && currentChangelog?.status !== "published") {
-        const scheduledPublishTime = scheduledTime
-          ? new Date(scheduledTime).getTime()
-          : undefined;
         await publishChangelog({ changelogId, scheduledPublishTime });
       }
+      setShowPublishModal(false);
       router.push("/dashboard/changelogs");
     } catch (error) {
       console.error("Error saving changelog:", error);
@@ -89,7 +119,6 @@ export default function EditChangelogPage({ params }) {
     setIsSaving(true);
     try {
       await cancelSchedule({ changelogId });
-      setScheduledTime("");
     } catch (error) {
       console.error("Error canceling schedule:", error);
       alert("Failed to cancel schedule.");
@@ -119,6 +148,7 @@ export default function EditChangelogPage({ params }) {
     setSelectedLabelIds((prev) =>
       prev.includes(labelId) ? prev.filter((id) => id !== labelId) : [...prev, labelId]
     );
+    triggerAutoSave();
   };
 
   if (!currentChangelog) {
@@ -131,13 +161,6 @@ export default function EditChangelogPage({ params }) {
 
   const isPublished = currentChangelog.status === "published";
   const isScheduledStatus = currentChangelog.status === "scheduled";
-  const isScheduled = scheduledTime && new Date(scheduledTime).getTime() > Date.now();
-
-  const minDateTime = (() => {
-    const d = new Date(Date.now() + 60000);
-    d.setSeconds(0, 0);
-    return d.toISOString().slice(0, 16);
-  })();
 
   const dateStr = isPublished && currentChangelog.publishDate
     ? new Date(currentChangelog.publishDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
@@ -178,6 +201,7 @@ export default function EditChangelogPage({ params }) {
             />
             {isPublished ? "Live" : isScheduledStatus ? "Scheduled" : "Draft"}
           </span>
+          <AutoSaveIndicator status={autoSaveStatus} />
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -225,53 +249,19 @@ export default function EditChangelogPage({ params }) {
             </button>
           )}
           {!isPublished && (
-            <>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="datetime-local"
-                  value={scheduledTime}
-                  onChange={(e) => setScheduledTime(e.target.value)}
-                  min={minDateTime}
-                  className="schedule-input px-2 py-1.5 rounded-md text-xs"
-                  style={{
-                    backgroundColor: theme.neutral.white,
-                    color: theme.text.muted,
-                    border: `1px solid ${theme.neutral.border}`,
-                    outline: "none",
-                    width: scheduledTime ? "auto" : "32px",
-                    opacity: scheduledTime ? 1 : 0.6,
-                  }}
-                  title="Schedule publish time"
-                />
-                {scheduledTime && (
-                  <button
-                    onClick={() => setScheduledTime("")}
-                    className="p-1 rounded transition-colors"
-                    style={{ color: theme.text.tertiary }}
-                    title="Clear schedule"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-              <button
-                onClick={() => handleSave(true)}
-                disabled={isSaving}
-                className="editor-btn-primary px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-50"
-                style={{
-                  backgroundColor: isScheduled ? theme.status.info : theme.brand.primary,
-                  color: theme.text.inverse,
-                  border: "none",
-                  cursor: isSaving ? "not-allowed" : "pointer",
-                }}
-              >
-                {isSaving
-                  ? isScheduled ? "Scheduling…" : "Publishing…"
-                  : isScheduled ? "Schedule" : "Publish"}
-              </button>
-            </>
+            <button
+              onClick={() => setShowPublishModal(true)}
+              disabled={isSaving}
+              className="editor-btn-primary px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-50"
+              style={{
+                backgroundColor: theme.brand.primary,
+                color: theme.text.inverse,
+                border: "none",
+                cursor: isSaving ? "not-allowed" : "pointer",
+              }}
+            >
+              Publish
+            </button>
           )}
         </div>
       </div>
@@ -279,14 +269,14 @@ export default function EditChangelogPage({ params }) {
       {/* Cover image */}
       <CoverImageUpload
         coverImageId={coverImageId}
-        onCoverImageChange={setCoverImageId}
+        onCoverImageChange={(id) => { setCoverImageId(id); triggerAutoSave(); }}
       />
 
       {/* Title — large, Notion-style */}
       <input
         type="text"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(e) => { setTitle(e.target.value); triggerAutoSave(); }}
         placeholder="Untitled"
         className="w-full focus:outline-none"
         style={{
@@ -342,7 +332,7 @@ export default function EditChangelogPage({ params }) {
       {/* Editor */}
       <ChangelogEditor
         initialContent={content}
-        onChange={(blocks) => setContent(serializeBlocks(blocks))}
+        onChange={(blocks) => { setContent(serializeBlocks(blocks)); triggerAutoSave(); }}
       />
 
       {/* Hint */}
@@ -363,12 +353,16 @@ export default function EditChangelogPage({ params }) {
         .label-chip:hover {
           border-color: ${theme.neutral.subtle} !important;
         }
-        .schedule-input:focus {
-          border-color: ${theme.brand.primary} !important;
-          width: auto !important;
-          opacity: 1 !important;
-        }
       `}</style>
+
+      <PublishModal
+        isOpen={showPublishModal}
+        onClose={() => setShowPublishModal(false)}
+        onPublish={(scheduledTime) => handleSave(true, scheduledTime)}
+        isSaving={isSaving}
+        projectName={currentProject?.name}
+        changelogTitle={title}
+      />
     </div>
   );
 }

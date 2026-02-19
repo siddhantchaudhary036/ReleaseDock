@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ChangelogEditor from "../../../../components/ChangelogEditor";
 import CoverImageUpload from "../../../../components/CoverImageUpload";
+import AutoSaveIndicator from "../../../../components/AutoSaveIndicator";
+import { useAutoSave } from "../../../../hooks/useAutoSave";
 import { serializeBlocks } from "../../../../lib/blocknote";
 import theme from "../../../../constants/theme";
 
@@ -21,7 +23,54 @@ export default function NewChangelogPage() {
   const [scheduledTime, setScheduledTime] = useState("");
 
   const createChangelog = useMutation(api.changelogs.createChangelog);
+  const updateChangelog = useMutation(api.changelogs.updateChangelog);
   const publishChangelog = useMutation(api.changelogs.publishChangelog);
+
+  // Track the draft ID once auto-saved for the first time
+  const [draftId, setDraftId] = useState(null);
+
+  // Refs to hold latest state for auto-save
+  const titleRef = useRef(title);
+  const contentRef = useRef(content);
+  const labelIdsRef = useRef(selectedLabelIds);
+  const coverImageRef = useRef(coverImageId);
+  const draftIdRef = useRef(draftId);
+  useEffect(() => { titleRef.current = title; }, [title]);
+  useEffect(() => { contentRef.current = content; }, [content]);
+  useEffect(() => { labelIdsRef.current = selectedLabelIds; }, [selectedLabelIds]);
+  useEffect(() => { coverImageRef.current = coverImageId; }, [coverImageId]);
+  useEffect(() => { draftIdRef.current = draftId; }, [draftId]);
+
+  const autoSaveFn = useCallback(async () => {
+    if (!titleRef.current.trim() || !currentProjectId) return;
+    if (draftIdRef.current) {
+      // Already created — update
+      await updateChangelog({
+        changelogId: draftIdRef.current,
+        title: titleRef.current.trim(),
+        content: contentRef.current,
+        labelIds: labelIdsRef.current,
+        coverImageId: coverImageRef.current,
+      });
+    } else {
+      // First save — create draft
+      const id = await createChangelog({
+        projectId: currentProjectId,
+        title: titleRef.current.trim(),
+        content: contentRef.current,
+        labelIds: labelIdsRef.current,
+        coverImageId: coverImageRef.current,
+      });
+      setDraftId(id);
+      draftIdRef.current = id;
+    }
+  }, [currentProjectId, createChangelog, updateChangelog]);
+
+  const { autoSaveStatus, triggerAutoSave, flushAutoSave } = useAutoSave(
+    autoSaveFn,
+    5000,
+    !!currentProjectId
+  );
 
   useEffect(() => {
     const savedProjectId = localStorage.getItem("currentProjectId");
@@ -36,15 +85,29 @@ export default function NewChangelogPage() {
   const handleSave = async (shouldPublish = false) => {
     if (!currentProjectId) { alert("Please select a project first"); return; }
     if (!title.trim()) { alert("Please enter a title"); return; }
+    flushAutoSave();
     setIsSaving(true);
     try {
-      const changelogId = await createChangelog({
-        projectId: currentProjectId,
-        title: title.trim(),
-        content,
-        labelIds: selectedLabelIds,
-        coverImageId,
-      });
+      let changelogId = draftId;
+      if (changelogId) {
+        // Draft was already auto-saved — update it
+        await updateChangelog({
+          changelogId,
+          title: title.trim(),
+          content,
+          labelIds: selectedLabelIds,
+          coverImageId,
+        });
+      } else {
+        // No auto-save yet — create fresh
+        changelogId = await createChangelog({
+          projectId: currentProjectId,
+          title: title.trim(),
+          content,
+          labelIds: selectedLabelIds,
+          coverImageId,
+        });
+      }
       if (shouldPublish) {
         const scheduledPublishTime = scheduledTime
           ? new Date(scheduledTime).getTime()
@@ -64,6 +127,7 @@ export default function NewChangelogPage() {
     setSelectedLabelIds((prev) =>
       prev.includes(labelId) ? prev.filter((id) => id !== labelId) : [...prev, labelId]
     );
+    triggerAutoSave();
   };
 
   if (!currentProjectId) {
@@ -105,6 +169,7 @@ export default function NewChangelogPage() {
           <span className="text-xs" style={{ color: theme.text.tertiary }}>New changelog</span>
           <span className="text-xs" style={{ color: theme.text.tertiary }}>·</span>
           <span className="text-xs" style={{ color: theme.text.tertiary }}>{today}</span>
+          <AutoSaveIndicator status={autoSaveStatus} />
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -171,14 +236,14 @@ export default function NewChangelogPage() {
       {/* Cover image */}
       <CoverImageUpload
         coverImageId={coverImageId}
-        onCoverImageChange={setCoverImageId}
+        onCoverImageChange={(id) => { setCoverImageId(id); triggerAutoSave(); }}
       />
 
       {/* Title — large, Notion-style */}
       <input
         type="text"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(e) => { setTitle(e.target.value); triggerAutoSave(); }}
         placeholder="Untitled"
         className="w-full focus:outline-none"
         style={{
@@ -235,7 +300,7 @@ export default function NewChangelogPage() {
       {/* Editor — borderless, flows naturally */}
       <ChangelogEditor
         initialContent={content}
-        onChange={(blocks) => setContent(serializeBlocks(blocks))}
+        onChange={(blocks) => { setContent(serializeBlocks(blocks)); triggerAutoSave(); }}
       />
 
       {/* Subtle hint */}

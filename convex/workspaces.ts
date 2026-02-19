@@ -76,3 +76,14 @@ export const getWorkspaceByOwner = query({
       .collect();
   },
 });
+
+
+export const getWorkspaceById = query({
+  args: {
+    workspaceId: v.id("workspaces"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.workspaceId);
+  },
+});
+

@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * ChangelogRenderer - Renders BlockNote JSON as read-only HTML
  * 
