@@ -59,6 +59,26 @@ export const getProjectsByWorkspace = query({
     workspaceId: v.id("workspaces"),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+
+    // Verify the caller owns this workspace
+    const workspace = await ctx.db.get(args.workspaceId);
+    if (!workspace) {
+      return [];
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || workspace.ownerId !== user._id) {
+      return [];
+    }
+
     return await ctx.db
       .query("projects")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -73,7 +93,7 @@ export const getProjectById = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Unauthorized");
+      return null;
     }
 
     const project = await ctx.db.get(args.projectId);
@@ -93,7 +113,7 @@ export const getProjectById = query({
       .unique();
 
     if (!user || workspace.ownerId !== user._id) {
-      throw new Error("Forbidden");
+      return null;
     }
 
     return project;

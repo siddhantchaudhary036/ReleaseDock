@@ -13,6 +13,10 @@ import { mutation, query } from "./_generated/server";
  */
 export const generateUploadUrl = mutation({
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -35,6 +39,10 @@ export const getStorageUrl = query({
 export const deleteFile = mutation({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
     await ctx.storage.delete(args.storageId);
   },
 });

@@ -8,11 +8,13 @@
  * @module
  */
 
+import type * as categories from "../categories.js";
 import type * as changelogs from "../changelogs.js";
 import type * as http from "../http.js";
 import type * as labels from "../labels.js";
 import type * as onboarding from "../onboarding.js";
 import type * as projects from "../projects.js";
+import type * as reactions from "../reactions.js";
 import type * as storage from "../storage.js";
 import type * as users from "../users.js";
 import type * as workspaces from "../workspaces.js";
@@ -24,11 +26,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  categories: typeof categories;
   changelogs: typeof changelogs;
   http: typeof http;
   labels: typeof labels;
   onboarding: typeof onboarding;
   projects: typeof projects;
+  reactions: typeof reactions;
   storage: typeof storage;
   users: typeof users;
   workspaces: typeof workspaces;

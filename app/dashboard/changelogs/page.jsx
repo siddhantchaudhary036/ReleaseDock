@@ -4,45 +4,12 @@ import { useState, useEffect } from "react";
 import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import StatusFilter from "../../../components/StatusFilter";
+import PreviewDropdown from "../../../components/PreviewDropdown";
+import LivePreview from "../../../components/LivePreview";
 import Link from "next/link";
 import theme from "../../../constants/theme";
 
-function CopyLinkButton({ url }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  return (
-    <button
-      onClick={handleCopy}
-      title={copied ? "Copied!" : "Copy changelog page link"}
-      className="copy-link-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors"
-      style={{
-        backgroundColor: copied ? theme.status.successLight : theme.neutral.white,
-        color: copied ? theme.status.success : theme.text.muted,
-        border: `1px solid ${copied ? theme.status.success : theme.neutral.border}`,
-        cursor: "pointer",
-        fontSize: 13,
-      }}
-    >
-      {copied ? (
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-        </svg>
-      ) : (
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.54a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.34 8.798" />
-        </svg>
-      )}
-      {copied ? "Copied" : "Copy link"}
-    </button>
-  );
-}
+const REACTION_EMOJIS = ["👍", "🎉", "❤️"];
 
 function CoverThumb({ storageId }) {
   const url = useQuery(api.storage.getStorageUrl, { storageId });
@@ -60,6 +27,8 @@ function CoverThumb({ storageId }) {
 export default function ChangelogsPage() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [previewChangelog, setPreviewChangelog] = useState(null);
+  const [previewType, setPreviewType] = useState(null);
   const { isAuthenticated } = useConvexAuth();
 
   useEffect(() => {
@@ -95,15 +64,33 @@ export default function ChangelogsPage() {
     isAuthenticated && currentProjectId ? { projectId: currentProjectId } : "skip"
   );
 
+  const categories = useQuery(
+    api.categories.getCategoriesByProject,
+    isAuthenticated && currentProjectId ? { projectId: currentProjectId } : "skip"
+  );
+
   const labelMap =
     labels?.reduce((acc, label) => {
       acc[label._id] = label;
       return acc;
     }, {}) || {};
 
+  const categoryMap =
+    categories?.reduce((acc, cat) => {
+      acc[cat._id] = cat;
+      return acc;
+    }, {}) || {};
+
   const sortedChangelogs = changelogs
     ? [...changelogs].sort((a, b) => b.updatedAt - a.updatedAt)
     : [];
+
+  // Fetch reaction counts for all changelogs
+  const changelogIds = changelogs?.map((c) => c._id) || [];
+  const reactionCounts = useQuery(
+    api.reactions.getReactionCountsBatch,
+    changelogIds.length > 0 ? { changelogIds } : "skip"
+  );
 
   // Counts for filter badges
   const allChangelogs = useQuery(
@@ -147,29 +134,6 @@ export default function ChangelogsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {hostedPageUrl && (
-            <>
-              <CopyLinkButton url={hostedPageUrl} />
-              <a
-                href={hostedPageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="preview-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: theme.neutral.white,
-                  color: theme.text.muted,
-                  border: `1px solid ${theme.neutral.border}`,
-                  textDecoration: "none",
-                  fontSize: 13,
-                }}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                </svg>
-                Preview
-              </a>
-            </>
-          )}
           <Link
             href="/dashboard/changelogs/new"
             className="new-changelog-btn flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
@@ -223,111 +187,193 @@ export default function ChangelogsPage() {
           <div
             className="grid items-center px-4 py-2 text-xs font-medium"
             style={{
-              gridTemplateColumns: "1fr 140px 100px 80px",
+              gridTemplateColumns: "1fr 120px 120px 100px 100px 80px 90px",
               backgroundColor: theme.neutral.bg,
               color: theme.text.tertiary,
               borderBottom: `1px solid ${theme.neutral.border}`,
             }}
           >
             <span>Title</span>
+            <span>Category</span>
             <span>Labels</span>
             <span>Date</span>
+            <span>Reactions</span>
             <span className="text-right">Status</span>
+            <span className="text-right">Actions</span>
           </div>
 
           {/* Rows */}
-          {sortedChangelogs.map((changelog, idx) => (
-            <Link
-              key={changelog._id}
-              href={`/dashboard/changelogs/${changelog._id}`}
-              className="changelog-row grid items-center px-4 py-3 transition-colors"
-              style={{
-                gridTemplateColumns: "1fr 140px 100px 80px",
-                backgroundColor: theme.neutral.white,
-                borderBottom: idx < sortedChangelogs.length - 1 ? `1px solid ${theme.neutral.border}` : "none",
-                textDecoration: "none",
-              }}
-            >
-              {/* Title */}
-              <div className="min-w-0 pr-4 flex items-center gap-2.5">
-                {changelog.coverImageId && (
-                  <CoverThumb storageId={changelog.coverImageId} />
-                )}
-                <p
-                  className="text-sm font-medium truncate"
-                  style={{ color: theme.text.primary }}
-                >
-                  {changelog.title || "Untitled"}
-                </p>
-              </div>
+          {sortedChangelogs.map((changelog, idx) => {
 
-              {/* Labels */}
-              <div className="flex flex-wrap gap-1 min-w-0">
-                {changelog.labelIds?.slice(0, 2).map((labelId) => {
-                  const label = labelMap[labelId];
-                  if (!label) return null;
-                  return (
-                    <span
-                      key={labelId}
-                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium truncate max-w-[60px]"
-                      style={{ backgroundColor: `${label.color}15`, color: label.color }}
-                    >
-                      {label.name}
+
+            // Attach resolved labels for preview
+            const changelogWithLabels = {
+              ...changelog,
+              _labels: changelog.labelIds
+                ?.map((id) => labelMap[id])
+                .filter(Boolean) || [],
+            };
+
+            return (
+              <div
+                key={changelog._id}
+                className="changelog-row grid items-center px-4 py-3"
+                style={{
+                  gridTemplateColumns: "1fr 120px 120px 100px 100px 80px 90px",
+                  backgroundColor: theme.neutral.white,
+                  borderBottom: idx < sortedChangelogs.length - 1 ? `1px solid ${theme.neutral.border}` : "none",
+                }}
+              >
+                {/* Title */}
+                <Link
+                  href={`/dashboard/changelogs/${changelog._id}`}
+                  className="min-w-0 pr-4 flex items-center gap-2.5"
+                  style={{ textDecoration: "none" }}
+                >
+                  {changelog.coverImageId && (
+                    <CoverThumb storageId={changelog.coverImageId} />
+                  )}
+                  <p
+                    className="text-sm font-medium truncate"
+                    style={{ color: theme.text.primary }}
+                  >
+                    {changelog.title || "Untitled"}
+                  </p>
+                </Link>
+
+                {/* Categories */}
+                <div className="flex flex-wrap gap-1 min-w-0">
+                  {(changelog.categoryIds || []).slice(0, 2).map((catId) => {
+                    const cat = categoryMap[catId];
+                    if (!cat) return null;
+                    return (
+                      <span
+                        key={catId}
+                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium truncate max-w-[55px]"
+                        style={{ backgroundColor: `${cat.color}12`, color: cat.color, border: `1px solid ${cat.color}25` }}
+                      >
+                        {cat.name}
+                      </span>
+                    );
+                  })}
+                  {(changelog.categoryIds || []).length > 2 && (
+                    <span className="text-[10px]" style={{ color: theme.text.tertiary }}>
+                      +{changelog.categoryIds.length - 2}
                     </span>
-                  );
-                })}
-                {changelog.labelIds?.length > 2 && (
-                  <span className="text-[10px]" style={{ color: theme.text.tertiary }}>
-                    +{changelog.labelIds.length - 2}
-                  </span>
-                )}
-              </div>
+                  )}
+                </div>
 
-              {/* Date */}
-              <span className="text-xs tabular-nums" style={{ color: theme.text.tertiary }}>
-                {changelog.status === "published" && changelog.publishDate
-                  ? formatDate(changelog.publishDate)
-                  : changelog.status === "scheduled" && changelog.scheduledPublishTime
-                  ? formatDate(changelog.scheduledPublishTime)
-                  : formatDate(changelog.updatedAt)}
-              </span>
+                {/* Labels */}
+                <div className="flex flex-wrap gap-1 min-w-0">
+                  {changelog.labelIds?.slice(0, 2).map((labelId) => {
+                    const label = labelMap[labelId];
+                    if (!label) return null;
+                    return (
+                      <span
+                        key={labelId}
+                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium truncate max-w-[60px]"
+                        style={{ backgroundColor: `${label.color}15`, color: label.color }}
+                      >
+                        {label.name}
+                      </span>
+                    );
+                  })}
+                  {changelog.labelIds?.length > 2 && (
+                    <span className="text-[10px]" style={{ color: theme.text.tertiary }}>
+                      +{changelog.labelIds.length - 2}
+                    </span>
+                  )}
+                </div>
 
-              {/* Status */}
-              <div className="flex justify-end">
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                  style={{
-                    backgroundColor:
-                      changelog.status === "published"
-                        ? theme.status.successLight
-                        : changelog.status === "scheduled"
-                        ? theme.status.infoLight
-                        : theme.status.warningLight,
-                    color:
-                      changelog.status === "published"
-                        ? theme.status.success
-                        : changelog.status === "scheduled"
-                        ? theme.status.info
-                        : theme.status.warning,
-                  }}
-                >
+                {/* Date */}
+                <span className="text-xs tabular-nums" style={{ color: theme.text.tertiary }}>
+                  {changelog.status === "published" && changelog.publishDate
+                    ? formatDate(changelog.publishDate)
+                    : changelog.status === "scheduled" && changelog.scheduledPublishTime
+                    ? formatDate(changelog.scheduledPublishTime)
+                    : formatDate(changelog.updatedAt)}
+                </span>
+
+                {/* Reactions */}
+                <div className="flex items-center gap-1.5">
+                  {REACTION_EMOJIS.map((emoji) => {
+                    const count = reactionCounts?.[changelog._id]?.[emoji] || 0;
+                    if (count === 0) return null;
+                    return (
+                      <span
+                        key={emoji}
+                        className="inline-flex items-center gap-0.5 text-[11px]"
+                        style={{ color: theme.text.tertiary }}
+                      >
+                        <span>{emoji}</span>
+                        <span>{count}</span>
+                      </span>
+                    );
+                  })}
+                  {(!reactionCounts?.[changelog._id] ||
+                    REACTION_EMOJIS.every((e) => !reactionCounts[changelog._id][e])) && (
+                    <span className="text-[11px]" style={{ color: theme.text.tertiary }}>—</span>
+                  )}
+                </div>
+
+                {/* Status */}
+                <div className="flex justify-end">
                   <span
-                    className="w-1 h-1 rounded-full"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
                     style={{
                       backgroundColor:
+                        changelog.status === "published"
+                          ? theme.status.successLight
+                          : changelog.status === "scheduled"
+                          ? theme.status.infoLight
+                          : theme.status.warningLight,
+                      color:
                         changelog.status === "published"
                           ? theme.status.success
                           : changelog.status === "scheduled"
                           ? theme.status.info
                           : theme.status.warning,
                     }}
+                  >
+                    <span
+                      className="w-1 h-1 rounded-full"
+                      style={{
+                        backgroundColor:
+                          changelog.status === "published"
+                            ? theme.status.success
+                            : changelog.status === "scheduled"
+                            ? theme.status.info
+                            : theme.status.warning,
+                      }}
+                    />
+                    {changelog.status === "published" ? "Live" : changelog.status === "scheduled" ? "Scheduled" : "Draft"}
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-1">
+
+                  <PreviewDropdown
+                    hostedPageUrl={hostedPageUrl}
+                    onSelect={(type) => {
+                      setPreviewChangelog(changelogWithLabels);
+                      setPreviewType(type);
+                    }}
                   />
-                  {changelog.status === "published" ? "Live" : changelog.status === "scheduled" ? "Scheduled" : "Draft"}
-                </span>
+                </div>
               </div>
-            </Link>
-          ))}
+            );
+          })}
         </div>
+      )}
+
+      {previewType && previewChangelog && (
+        <LivePreview
+          type={previewType}
+          changelog={previewChangelog}
+          widgetSettings={currentProject?.widgetSettings}
+          onClose={() => { setPreviewChangelog(null); setPreviewType(null); }}
+        />
       )}
 
       <style>{`
@@ -337,11 +383,9 @@ export default function ChangelogsPage() {
         .new-changelog-btn:hover {
           background-color: ${theme.brand.primaryHover} !important;
         }
-        .copy-link-btn:hover {
+        .row-action-btn:hover {
           background-color: ${theme.neutral.hover} !important;
-        }
-        .preview-btn:hover {
-          background-color: ${theme.neutral.hover} !important;
+          color: ${theme.text.secondary} !important;
         }
       `}</style>
     </div>

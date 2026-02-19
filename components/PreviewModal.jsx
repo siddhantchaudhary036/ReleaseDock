@@ -57,7 +57,7 @@ const PREVIEW_TYPES = [
   },
 ];
 
-export default function PreviewModal({ isOpen, onClose, changelog }) {
+export default function PreviewModal({ isOpen, onClose, changelog, onSelectPreview }) {
   const [activePreview, setActivePreview] = useState("widget");
 
   if (!isOpen || !changelog) return null;
@@ -179,6 +179,58 @@ export default function PreviewModal({ isOpen, onClose, changelog }) {
             </p>
             <PreviewRenderer type={activePreview} title={title} date={date} changelog={changelog} />
           </div>
+
+          {/* Footer */}
+          <div
+            style={{
+              padding: "14px 24px",
+              borderTop: `1px solid ${theme.neutral.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: "8px",
+              flexShrink: 0,
+            }}
+          >
+            <button
+              onClick={onClose}
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                fontWeight: 500,
+                border: `1px solid ${theme.neutral.border}`,
+                borderRadius: theme.radius.sm,
+                backgroundColor: theme.neutral.white,
+                color: theme.text.muted,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                if (activePreview === "fullpage") {
+                  onClose();
+                  return;
+                }
+                if (onSelectPreview) onSelectPreview(activePreview);
+                onClose();
+              }}
+              className="select-preview-btn"
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                fontWeight: 500,
+                border: "none",
+                borderRadius: theme.radius.sm,
+                backgroundColor: theme.brand.primary,
+                color: theme.text.inverse,
+                cursor: "pointer",
+              }}
+            >
+              Select & Preview Live
+            </button>
+          </div>
         </div>
       </div>
 
@@ -187,7 +239,426 @@ export default function PreviewModal({ isOpen, onClose, changelog }) {
           border-color: ${theme.brand.primary} !important;
           background-color: ${theme.brand.primaryLight} !important;
         }
+        .select-preview-btn:hover {
+          background-color: ${theme.brand.primaryHover} !important;
+        }
       `}</style>
     </>
+  );
+}
+
+function PreviewRenderer({ type, title, date, changelog }) {
+  const labels = changelog._labels || [];
+
+  switch (type) {
+    case "widget":
+      return <WidgetPreview title={title} date={date} labels={labels} />;
+    case "popup":
+      return <PopupPreview title={title} date={date} labels={labels} />;
+    case "banner":
+      return <BannerPreview title={title} date={date} labels={labels} />;
+    case "snippet":
+      return <SnippetPreview title={title} date={date} labels={labels} />;
+    case "fullpage":
+      return <FullPagePreview title={title} date={date} labels={labels} />;
+    default:
+      return null;
+  }
+}
+
+/* ── Fake browser chrome wrapper ─────────────────── */
+function BrowserFrame({ children, style }) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${theme.neutral.border}`,
+        borderRadius: theme.radius.lg,
+        overflow: "hidden",
+        backgroundColor: "#f0f0f0",
+        ...style,
+      }}
+    >
+      {/* Title bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          padding: "10px 14px",
+          backgroundColor: "#e8e8e8",
+          borderBottom: `1px solid ${theme.neutral.border}`,
+        }}
+      >
+        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#ff5f57" }} />
+        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#febc2e" }} />
+        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#28c840" }} />
+        <div
+          style={{
+            flex: 1,
+            marginLeft: 8,
+            padding: "4px 12px",
+            borderRadius: 6,
+            backgroundColor: "#fff",
+            fontSize: "11px",
+            color: "#999",
+            textAlign: "center",
+          }}
+        >
+          yourapp.com
+        </div>
+      </div>
+      {/* Page content */}
+      <div style={{ position: "relative", height: 380, backgroundColor: "#fafafa", overflow: "hidden" }}>
+        {/* Fake page skeleton */}
+        <div style={{ padding: "24px 32px" }}>
+          <div style={{ width: "40%", height: 14, borderRadius: 4, backgroundColor: "#e5e5e5", marginBottom: 12 }} />
+          <div style={{ width: "70%", height: 10, borderRadius: 4, backgroundColor: "#ececec", marginBottom: 8 }} />
+          <div style={{ width: "55%", height: 10, borderRadius: 4, backgroundColor: "#ececec", marginBottom: 8 }} />
+          <div style={{ width: "65%", height: 10, borderRadius: 4, backgroundColor: "#ececec", marginBottom: 20 }} />
+          <div style={{ width: "45%", height: 10, borderRadius: 4, backgroundColor: "#ececec", marginBottom: 8 }} />
+          <div style={{ width: "60%", height: 10, borderRadius: 4, backgroundColor: "#ececec" }} />
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function LabelBadges({ labels, small }) {
+  if (!labels?.length) return null;
+  return (
+    <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+      {labels.slice(0, 3).map((label, i) => (
+        <span
+          key={i}
+          style={{
+            display: "inline-block",
+            padding: small ? "1px 6px" : "2px 8px",
+            borderRadius: 10,
+            fontSize: small ? "9px" : "10px",
+            fontWeight: 500,
+            backgroundColor: `${label.color || theme.brand.primary}20`,
+            color: label.color || theme.brand.primary,
+          }}
+        >
+          {label.name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ── Widget preview (slide-out panel) ─────────────── */
+function WidgetPreview({ title, date, labels }) {
+  return (
+    <BrowserFrame>
+      {/* Launcher button */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 16,
+          right: 16,
+          width: 44,
+          height: 44,
+          borderRadius: "50%",
+          backgroundColor: theme.brand.primary,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 2,
+        }}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        <span
+          style={{
+            position: "absolute",
+            top: -4,
+            right: -4,
+            backgroundColor: "#ef4444",
+            color: "white",
+            borderRadius: 10,
+            padding: "1px 5px",
+            fontSize: "9px",
+            fontWeight: 700,
+          }}
+        >
+          1
+        </span>
+      </div>
+      {/* Feed panel */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 68,
+          right: 16,
+          width: 280,
+          backgroundColor: "#1a1a1a",
+          borderRadius: 10,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+          overflow: "hidden",
+          zIndex: 3,
+        }}
+      >
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid #333", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#222" }}>
+          <span style={{ fontSize: "13px", fontWeight: 600, color: "#fff" }}>What's New</span>
+          <span style={{ color: "#666", fontSize: "16px" }}>×</span>
+        </div>
+        <div style={{ padding: "14px 16px" }}>
+          <div style={{ fontSize: "12px", fontWeight: 600, color: "#fff", marginBottom: 6 }}>{title}</div>
+          <div style={{ fontSize: "10px", color: "#888", marginBottom: 8 }}>{date}</div>
+          <LabelBadges labels={labels} small />
+          <div style={{ marginTop: 10 }}>
+            <div style={{ width: "90%", height: 7, borderRadius: 3, backgroundColor: "#333", marginBottom: 5 }} />
+            <div style={{ width: "70%", height: 7, borderRadius: 3, backgroundColor: "#333", marginBottom: 5 }} />
+            <div style={{ width: "80%", height: 7, borderRadius: 3, backgroundColor: "#333" }} />
+          </div>
+        </div>
+        <div style={{ padding: "8px 16px", borderTop: "1px solid #333", textAlign: "center", fontSize: "9px", color: "#555" }}>
+          Powered by <span style={{ color: theme.brand.primary }}>ReleaseDock</span>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ── Popup preview (centered modal) ───────────────── */
+function PopupPreview({ title, date, labels }) {
+  return (
+    <BrowserFrame>
+      {/* Dimmed overlay */}
+      <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.35)", zIndex: 2 }} />
+      {/* Centered popup */}
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 300,
+          backgroundColor: "#fff",
+          borderRadius: 10,
+          boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
+          overflow: "hidden",
+          zIndex: 3,
+        }}
+      >
+        {/* Accent bar */}
+        <div style={{ height: 3, backgroundColor: theme.brand.primary }} />
+        <div style={{ padding: "18px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+            <svg width="14" height="14" fill="none" stroke={theme.brand.primary} viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
+            <span style={{ fontSize: "10px", fontWeight: 600, color: theme.brand.primary, textTransform: "uppercase", letterSpacing: "0.05em" }}>New Update</span>
+          </div>
+          <div style={{ fontSize: "14px", fontWeight: 600, color: theme.text.primary, marginBottom: 6 }}>{title}</div>
+          <div style={{ fontSize: "10px", color: theme.text.tertiary, marginBottom: 10 }}>{date}</div>
+          <LabelBadges labels={labels} small />
+          <div style={{ marginTop: 12 }}>
+            <div style={{ width: "95%", height: 8, borderRadius: 3, backgroundColor: "#f0f0f0", marginBottom: 5 }} />
+            <div style={{ width: "75%", height: 8, borderRadius: 3, backgroundColor: "#f0f0f0", marginBottom: 5 }} />
+            <div style={{ width: "85%", height: 8, borderRadius: 3, backgroundColor: "#f0f0f0" }} />
+          </div>
+          <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+            <div style={{ flex: 1, padding: "7px 0", borderRadius: 6, backgroundColor: theme.brand.primary, color: "#fff", fontSize: "11px", fontWeight: 500, textAlign: "center" }}>
+              Read more
+            </div>
+            <div style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: `1px solid ${theme.neutral.border}`, color: theme.text.muted, fontSize: "11px", fontWeight: 500, textAlign: "center" }}>
+              Dismiss
+            </div>
+          </div>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ── Banner / Top Bar preview ─────────────────────── */
+function BannerPreview({ title, date, labels }) {
+  return (
+    <BrowserFrame>
+      {/* Top bar */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: theme.brand.primary,
+          padding: "10px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+          zIndex: 3,
+        }}
+      >
+        <svg width="14" height="14" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+        </svg>
+        <span style={{ color: "#fff", fontSize: "12px", fontWeight: 500 }}>
+          {title}
+        </span>
+        <span
+          style={{
+            padding: "3px 10px",
+            borderRadius: 4,
+            backgroundColor: "rgba(255,255,255,0.2)",
+            color: "#fff",
+            fontSize: "10px",
+            fontWeight: 500,
+          }}
+        >
+          Read more →
+        </span>
+        <span
+          style={{
+            position: "absolute",
+            right: 14,
+            color: "rgba(255,255,255,0.6)",
+            fontSize: "16px",
+            cursor: "default",
+          }}
+        >
+          ×
+        </span>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ── Snippet preview (corner card) ────────────────── */
+function SnippetPreview({ title, date, labels }) {
+  return (
+    <BrowserFrame>
+      {/* Snippet card */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 16,
+          right: 16,
+          width: 240,
+          backgroundColor: "#fff",
+          borderRadius: 10,
+          boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
+          overflow: "hidden",
+          zIndex: 3,
+          border: `1px solid ${theme.neutral.border}`,
+        }}
+      >
+        {/* Accent top */}
+        <div style={{ height: 3, backgroundColor: theme.brand.primary }} />
+        <div style={{ padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <div
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 4,
+                backgroundColor: theme.brand.primaryLight,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <svg width="10" height="10" fill="none" stroke={theme.brand.primary} viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+            </div>
+            <span style={{ fontSize: "9px", fontWeight: 600, color: theme.brand.primary, textTransform: "uppercase", letterSpacing: "0.04em" }}>New Update</span>
+            <span style={{ marginLeft: "auto", color: "#ccc", fontSize: "14px" }}>×</span>
+          </div>
+          <div style={{ fontSize: "12px", fontWeight: 600, color: theme.text.primary, marginBottom: 4 }}>{title}</div>
+          <div style={{ fontSize: "9px", color: theme.text.tertiary, marginBottom: 8 }}>{date}</div>
+          <LabelBadges labels={labels} small />
+          <div style={{ marginTop: 10 }}>
+            <div style={{ width: "90%", height: 6, borderRadius: 3, backgroundColor: "#f0f0f0", marginBottom: 4 }} />
+            <div style={{ width: "70%", height: 6, borderRadius: 3, backgroundColor: "#f0f0f0" }} />
+          </div>
+        </div>
+      </div>
+    </BrowserFrame>
+  );
+}
+
+/* ── Full Page preview ────────────────────────────── */
+function FullPagePreview({ title, date, labels }) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${theme.neutral.border}`,
+        borderRadius: theme.radius.lg,
+        overflow: "hidden",
+        backgroundColor: "#fff",
+      }}
+    >
+      {/* Browser bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          padding: "10px 14px",
+          backgroundColor: "#e8e8e8",
+          borderBottom: `1px solid ${theme.neutral.border}`,
+        }}
+      >
+        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#ff5f57" }} />
+        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#febc2e" }} />
+        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#28c840" }} />
+        <div
+          style={{
+            flex: 1,
+            marginLeft: 8,
+            padding: "4px 12px",
+            borderRadius: 6,
+            backgroundColor: "#fff",
+            fontSize: "11px",
+            color: "#999",
+            textAlign: "center",
+          }}
+        >
+          yourapp.com/changelog
+        </div>
+      </div>
+      {/* Page */}
+      <div style={{ height: 380, overflow: "hidden" }}>
+        {/* Header */}
+        <div style={{ padding: "20px 32px", borderBottom: `1px solid ${theme.neutral.border}`, backgroundColor: "rgba(255,255,255,0.9)" }}>
+          <div style={{ fontSize: "16px", fontWeight: 600, color: theme.text.primary }}>Your Product</div>
+          <div style={{ fontSize: "11px", color: theme.text.tertiary, marginTop: 2 }}>Product Updates</div>
+        </div>
+        {/* Entry */}
+        <div style={{ padding: "24px 32px" }}>
+          <div
+            style={{
+              border: `1px solid ${theme.neutral.border}`,
+              borderRadius: 10,
+              overflow: "hidden",
+              backgroundColor: "#fff",
+            }}
+          >
+            {/* Fake cover image */}
+            <div style={{ height: 80, background: `linear-gradient(135deg, ${theme.brand.primaryLight}, ${theme.brand.primaryMuted})` }} />
+            <div style={{ padding: "18px 20px" }}>
+              <div style={{ fontSize: "14px", fontWeight: 600, color: theme.text.primary, marginBottom: 8 }}>{title}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: "10px", color: theme.text.tertiary }}>{date}</span>
+                <LabelBadges labels={labels} small />
+              </div>
+              <div>
+                <div style={{ width: "95%", height: 8, borderRadius: 3, backgroundColor: "#f3f4f6", marginBottom: 6 }} />
+                <div style={{ width: "80%", height: 8, borderRadius: 3, backgroundColor: "#f3f4f6", marginBottom: 6 }} />
+                <div style={{ width: "88%", height: 8, borderRadius: 3, backgroundColor: "#f3f4f6" }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

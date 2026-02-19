@@ -70,6 +70,21 @@ export const getWorkspaceByOwner = query({
     ownerId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+
+    // Verify the caller is requesting their own workspaces
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || user._id !== args.ownerId) {
+      return [];
+    }
+
     return await ctx.db
       .query("workspaces")
       .withIndex("by_owner", (q) => q.eq("ownerId", args.ownerId))
@@ -83,7 +98,27 @@ export const getWorkspaceById = query({
     workspaceId: v.id("workspaces"),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.workspaceId);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const workspace = await ctx.db.get(args.workspaceId);
+    if (!workspace) {
+      return null;
+    }
+
+    // Verify the caller owns this workspace
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user || workspace.ownerId !== user._id) {
+      return null;
+    }
+
+    return workspace;
   },
 });
 

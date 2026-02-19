@@ -8,6 +8,7 @@
 
 import { notFound } from "next/navigation";
 import ChangelogRenderer from "@/components/ChangelogRenderer";
+import ReactionBar from "@/components/ReactionBar";
 
 async function fetchChangelogData(slug) {
   const convexSiteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
@@ -119,6 +120,28 @@ export default async function PublicChangelogPage({ params }) {
                   </h2>
                   <div style={{ display: "flex", alignItems: "center", gap: "16px", fontSize: "14px" }}>
                     <time style={{ color: theme.text.tertiary }}>{formatDate(entry.publishDate)}</time>
+                    {entry.categories && entry.categories.length > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        {entry.categories.map((cat, catIndex) => (
+                          <span
+                            key={catIndex}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              padding: "2px 10px",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              fontWeight: 500,
+                              backgroundColor: `${cat.color}12`,
+                              color: cat.color,
+                              border: `1px solid ${cat.color}25`,
+                            }}
+                          >
+                            {cat.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {entry.labels && entry.labels.length > 0 && (
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         {entry.labels.map((label, labelIndex) => (
@@ -146,6 +169,7 @@ export default async function PublicChangelogPage({ params }) {
                 <div className="prose max-w-none">
                   <ChangelogRenderer content={entry.content} />
                 </div>
+                {entry._id && <ReactionBar changelogId={entry._id} />}
                 </div>
               </article>
             ))}

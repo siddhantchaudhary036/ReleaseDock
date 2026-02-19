@@ -43,6 +43,7 @@ export default defineSchema({
     scheduledPublishTime: v.optional(v.number()),
     scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
     labelIds: v.array(v.id("labels")),
+    categoryIds: v.optional(v.array(v.id("categories"))),
     coverImageId: v.optional(v.id("_storage")),
     authorId: v.id("users"),
     createdAt: v.number(),
@@ -56,4 +57,20 @@ export default defineSchema({
     name: v.string(),
     color: v.string(),
   }).index("by_project", ["projectId"]),
+
+  categories: defineTable({
+    projectId: v.id("projects"),
+    name: v.string(),
+    color: v.string(),
+  }).index("by_project", ["projectId"]),
+
+  reactions: defineTable({
+    changelogId: v.id("changelogs"),
+    emoji: v.string(),
+    fingerprint: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_changelog", ["changelogId"])
+    .index("by_changelog_emoji", ["changelogId", "emoji"])
+    .index("by_changelog_fingerprint", ["changelogId", "fingerprint"]),
 });

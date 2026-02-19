@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ChangelogEditor from "../../../../components/ChangelogEditor";
 import CoverImageUpload from "../../../../components/CoverImageUpload";
-import PublishModal from "../../../../components/PublishModal";
+import PublishDropdown from "../../../../components/PublishDropdown";
 import AutoSaveIndicator from "../../../../components/AutoSaveIndicator";
 import { useAutoSave } from "../../../../hooks/useAutoSave";
 import { serializeBlocks } from "../../../../lib/blocknote";
@@ -20,12 +20,12 @@ export default function EditChangelogPage({ params }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState([]);
   const [selectedLabelIds, setSelectedLabelIds] = useState([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
   const [coverImageId, setCoverImageId] = useState(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [confirmUnpublish, setConfirmUnpublish] = useState(false);
-  const [showPublishModal, setShowPublishModal] = useState(false);
 
   const updateChangelog = useMutation(api.changelogs.updateChangelog);
   const publishChangelog = useMutation(api.changelogs.publishChangelog);
@@ -36,10 +36,12 @@ export default function EditChangelogPage({ params }) {
   const titleRef = useRef(title);
   const contentRef = useRef(content);
   const labelIdsRef = useRef(selectedLabelIds);
+  const categoryIdsRef = useRef(selectedCategoryIds);
   const coverImageRef = useRef(coverImageId);
   useEffect(() => { titleRef.current = title; }, [title]);
   useEffect(() => { contentRef.current = content; }, [content]);
   useEffect(() => { labelIdsRef.current = selectedLabelIds; }, [selectedLabelIds]);
+  useEffect(() => { categoryIdsRef.current = selectedCategoryIds; }, [selectedCategoryIds]);
   useEffect(() => { coverImageRef.current = coverImageId; }, [coverImageId]);
 
   const autoSaveFn = useCallback(async () => {
@@ -49,6 +51,7 @@ export default function EditChangelogPage({ params }) {
       title: titleRef.current.trim(),
       content: contentRef.current,
       labelIds: labelIdsRef.current,
+      categoryIds: categoryIdsRef.current,
       coverImageId: coverImageRef.current,
     });
   }, [changelogId, updateChangelog]);
@@ -74,6 +77,11 @@ export default function EditChangelogPage({ params }) {
     currentProjectId ? { projectId: currentProjectId } : "skip"
   );
 
+  const categories = useQuery(
+    api.categories.getCategoriesByProject,
+    currentProjectId ? { projectId: currentProjectId } : "skip"
+  );
+
   const currentProject = useQuery(
     api.projects.getProjectById,
     currentProjectId ? { projectId: currentProjectId } : "skip"
@@ -84,13 +92,14 @@ export default function EditChangelogPage({ params }) {
       setTitle(currentChangelog.title || "");
       setContent(currentChangelog.content || []);
       setSelectedLabelIds(currentChangelog.labelIds || []);
+      setSelectedCategoryIds(currentChangelog.categoryIds || []);
       setCoverImageId(currentChangelog.coverImageId || undefined);
       setCurrentProjectId(currentChangelog.projectId);
       setIsLoaded(true);
     }
   }, [currentChangelog, isLoaded]);
 
-  const handleSave = async (shouldPublish = false, scheduledPublishTime) => {
+  const handleSave = async () => {
     if (!title.trim()) { alert("Please enter a title"); return; }
     flushAutoSave();
     setIsSaving(true);
@@ -100,16 +109,57 @@ export default function EditChangelogPage({ params }) {
         title: title.trim(),
         content,
         labelIds: selectedLabelIds,
+        categoryIds: selectedCategoryIds,
         coverImageId,
       });
-      if (shouldPublish && currentChangelog?.status !== "published") {
-        await publishChangelog({ changelogId, scheduledPublishTime });
-      }
-      setShowPublishModal(false);
       router.push("/dashboard/changelogs");
     } catch (error) {
       console.error("Error saving changelog:", error);
       alert("Failed to save changelog. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePublishNow = async () => {
+    if (!title.trim()) { alert("Please enter a title"); return; }
+    flushAutoSave();
+    setIsSaving(true);
+    try {
+      await updateChangelog({ changelogId, title: title.trim(), content, labelIds: selectedLabelIds, categoryIds: selectedCategoryIds, coverImageId });
+      await publishChangelog({ changelogId });
+      router.push("/dashboard/changelogs");
+    } catch (error) {
+      console.error("Error publishing:", error);
+      alert("Failed to publish. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSchedule = async (scheduledPublishTime) => {
+    if (!title.trim()) { alert("Please enter a title"); return; }
+    flushAutoSave();
+    setIsSaving(true);
+    try {
+      await updateChangelog({ changelogId, title: title.trim(), content, labelIds: selectedLabelIds, categoryIds: selectedCategoryIds, coverImageId });
+      await publishChangelog({ changelogId, scheduledPublishTime });
+      router.push("/dashboard/changelogs");
+    } catch (error) {
+      console.error("Error scheduling:", error);
+      alert("Failed to schedule. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditSchedule = async (newTime) => {
+    setIsSaving(true);
+    try {
+      await publishChangelog({ changelogId, scheduledPublishTime: newTime });
+    } catch (error) {
+      console.error("Error updating schedule:", error);
+      alert("Failed to update schedule.");
     } finally {
       setIsSaving(false);
     }
@@ -147,6 +197,13 @@ export default function EditChangelogPage({ params }) {
   const toggleLabel = (labelId) => {
     setSelectedLabelIds((prev) =>
       prev.includes(labelId) ? prev.filter((id) => id !== labelId) : [...prev, labelId]
+    );
+    triggerAutoSave();
+  };
+
+  const toggleCategory = (categoryId) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
     );
     triggerAutoSave();
   };
@@ -205,7 +262,7 @@ export default function EditChangelogPage({ params }) {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => handleSave(false)}
+            onClick={handleSave}
             disabled={isSaving}
             className="editor-btn-secondary px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-50"
             style={{
@@ -217,21 +274,6 @@ export default function EditChangelogPage({ params }) {
           >
             {isSaving ? "Saving…" : "Save"}
           </button>
-          {isScheduledStatus && (
-            <button
-              onClick={handleCancelSchedule}
-              disabled={isSaving}
-              className="editor-btn-secondary px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-50"
-              style={{
-                backgroundColor: theme.neutral.white,
-                color: theme.status.error,
-                border: `1px solid ${theme.neutral.border}`,
-                cursor: isSaving ? "not-allowed" : "pointer",
-              }}
-            >
-              Cancel schedule
-            </button>
-          )}
           {isPublished && (
             <button
               onClick={handleUnpublish}
@@ -249,19 +291,15 @@ export default function EditChangelogPage({ params }) {
             </button>
           )}
           {!isPublished && (
-            <button
-              onClick={() => setShowPublishModal(true)}
-              disabled={isSaving}
-              className="editor-btn-primary px-3 py-1.5 rounded-md text-xs font-medium transition-colors disabled:opacity-50"
-              style={{
-                backgroundColor: theme.brand.primary,
-                color: theme.text.inverse,
-                border: "none",
-                cursor: isSaving ? "not-allowed" : "pointer",
-              }}
-            >
-              Publish
-            </button>
+            <PublishDropdown
+              onPublishNow={handlePublishNow}
+              onSchedule={handleSchedule}
+              onCancelSchedule={handleCancelSchedule}
+              onEditSchedule={handleEditSchedule}
+              isSaving={isSaving}
+              isScheduled={isScheduledStatus}
+              scheduledTime={currentChangelog.scheduledPublishTime}
+            />
           )}
         </div>
       </div>
@@ -291,11 +329,46 @@ export default function EditChangelogPage({ params }) {
         }}
       />
 
-      {/* Meta row: labels */}
+      {/* Meta row: categories + labels */}
       <div
-        className="flex items-center gap-2 mt-3 mb-6 pb-5"
+        className="flex flex-col gap-2.5 mt-3 mb-6 pb-5"
         style={{ borderBottom: `1px solid ${theme.neutral.borderLight}` }}
       >
+        {/* Categories */}
+        {categories && categories.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-medium mr-0.5" style={{ color: theme.text.tertiary }}>
+              <svg className="w-3 h-3 inline-block mr-0.5 -mt-px" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 01-1.125-1.125v-3.75zM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-8.25zM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-2.25z" />
+              </svg>
+              Category
+            </span>
+            {categories.map((cat) => {
+              const selected = selectedCategoryIds.includes(cat._id);
+              return (
+                <button
+                  key={cat._id}
+                  onClick={() => toggleCategory(cat._id)}
+                  className="category-chip inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all"
+                  style={{
+                    backgroundColor: selected ? `${cat.color}12` : "transparent",
+                    color: selected ? cat.color : theme.text.tertiary,
+                    border: `1px solid ${selected ? `${cat.color}30` : theme.neutral.border}`,
+                    cursor: "pointer",
+                  }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-sm flex-shrink-0"
+                    style={{ backgroundColor: cat.color }}
+                  />
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Labels */}
         {labels && labels.length > 0 ? (
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-medium mr-0.5" style={{ color: theme.text.tertiary }}>Labels</span>
@@ -323,9 +396,11 @@ export default function EditChangelogPage({ params }) {
             })}
           </div>
         ) : (
-          <span className="text-[11px]" style={{ color: theme.text.tertiary }}>
-            No labels configured
-          </span>
+          !categories?.length && (
+            <span className="text-[11px]" style={{ color: theme.text.tertiary }}>
+              No labels or categories configured
+            </span>
+          )
         )}
       </div>
 
@@ -353,16 +428,11 @@ export default function EditChangelogPage({ params }) {
         .label-chip:hover {
           border-color: ${theme.neutral.subtle} !important;
         }
+        .category-chip:hover {
+          border-color: ${theme.neutral.subtle} !important;
+        }
       `}</style>
 
-      <PublishModal
-        isOpen={showPublishModal}
-        onClose={() => setShowPublishModal(false)}
-        onPublish={(scheduledTime) => handleSave(true, scheduledTime)}
-        isSaving={isSaving}
-        projectName={currentProject?.name}
-        changelogTitle={title}
-      />
     </div>
   );
 }

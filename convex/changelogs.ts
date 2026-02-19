@@ -8,6 +8,7 @@ export const createChangelog = mutation({
     title: v.string(),
     content: v.any(),
     labelIds: v.array(v.id("labels")),
+    categoryIds: v.optional(v.array(v.id("categories"))),
     coverImageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
@@ -51,6 +52,7 @@ export const createChangelog = mutation({
       content: args.content,
       status: "draft",
       labelIds: args.labelIds,
+      categoryIds: args.categoryIds || [],
       coverImageId: args.coverImageId,
       authorId: user._id,
       createdAt: now,
@@ -67,6 +69,7 @@ export const updateChangelog = mutation({
     title: v.string(),
     content: v.any(),
     labelIds: v.array(v.id("labels")),
+    categoryIds: v.optional(v.array(v.id("categories"))),
     coverImageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
@@ -113,6 +116,7 @@ export const updateChangelog = mutation({
       title: args.title,
       content: args.content,
       labelIds: args.labelIds,
+      categoryIds: args.categoryIds || [],
       coverImageId: args.coverImageId,
       updatedAt: Date.now(),
     });
@@ -344,7 +348,7 @@ export const getChangelogsByProject = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Unauthorized");
+      return [];
     }
 
     // Get the current user
@@ -354,24 +358,24 @@ export const getChangelogsByProject = query({
       .unique();
 
     if (!user) {
-      throw new Error("User not found");
+      return [];
     }
 
     // Get the project
     const project = await ctx.db.get(args.projectId);
     if (!project) {
-      throw new Error("Project not found");
+      return [];
     }
 
     // Get the workspace to verify ownership
     const workspace = await ctx.db.get(project.workspaceId);
     if (!workspace) {
-      throw new Error("Workspace not found");
+      return [];
     }
 
     // Verify user owns the workspace
     if (workspace.ownerId !== user._id) {
-      throw new Error("Forbidden");
+      return [];
     }
 
     // Query changelogs with optional status filter
@@ -420,7 +424,7 @@ export const getChangelogById = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Unauthorized");
+      return null;
     }
 
     // Get the current user
@@ -430,30 +434,30 @@ export const getChangelogById = query({
       .unique();
 
     if (!user) {
-      throw new Error("User not found");
+      return null;
     }
 
     // Get the changelog
     const changelog = await ctx.db.get(args.changelogId);
     if (!changelog) {
-      throw new Error("Changelog not found");
+      return null;
     }
 
     // Get the project
     const project = await ctx.db.get(changelog.projectId);
     if (!project) {
-      throw new Error("Project not found");
+      return null;
     }
 
     // Get the workspace to verify ownership
     const workspace = await ctx.db.get(project.workspaceId);
     if (!workspace) {
-      throw new Error("Workspace not found");
+      return null;
     }
 
     // Verify user owns the workspace
     if (workspace.ownerId !== user._id) {
-      throw new Error("Forbidden");
+      return null;
     }
 
     return changelog;

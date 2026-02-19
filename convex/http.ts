@@ -62,9 +62,16 @@ http.route({
     // Create a label lookup map
     const labelMap = new Map(labels.map((label) => [label._id, label]));
 
+    // Fetch categories for the project
+    const categories = await ctx.runQuery(api.categories.getCategoriesByProject, {
+      projectId: project._id,
+    });
+    const categoryMap = new Map(categories.map((cat) => [cat._id, cat]));
+
     // Format response with title, content, publishDate, and labels
     const entries = await Promise.all(
       changelogs.map(async (changelog) => ({
+        _id: changelog._id,
         title: changelog.title,
         content: changelog.content,
         publishDate: changelog.publishDate ?? 0,
@@ -77,6 +84,13 @@ http.route({
           .map((label) => ({
             name: label!.name,
             color: label!.color,
+          })),
+        categories: (changelog.categoryIds || [])
+          .map((catId: any) => categoryMap.get(catId))
+          .filter((cat: any) => cat !== undefined)
+          .map((cat: any) => ({
+            name: cat.name,
+            color: cat.color,
           })),
       }))
     );
@@ -173,9 +187,20 @@ http.route({
     // Create a label lookup map
     const labelMap = new Map(allLabels.map((label) => [label._id, label]));
 
+    // Fetch all categories for all projects
+    const allCategories = [];
+    for (const project of projects) {
+      const cats = await ctx.runQuery(api.categories.getCategoriesByProject, {
+        projectId: project._id,
+      });
+      allCategories.push(...cats);
+    }
+    const categoryMap = new Map(allCategories.map((cat) => [cat._id, cat]));
+
     // Format response with title, content, publishDate, and labels
     const entries = await Promise.all(
       allChangelogs.map(async (changelog) => ({
+        _id: changelog._id,
         title: changelog.title,
         content: changelog.content,
         publishDate: changelog.publishDate ?? 0,
@@ -188,6 +213,13 @@ http.route({
           .map((label) => ({
             name: label!.name,
             color: label!.color,
+          })),
+        categories: (changelog.categoryIds || [])
+          .map((catId: any) => categoryMap.get(catId))
+          .filter((cat: any) => cat !== undefined)
+          .map((cat: any) => ({
+            name: cat.name,
+            color: cat.color,
           })),
       }))
     );
@@ -209,6 +241,106 @@ http.route({
         },
       }
     );
+  }),
+});
+
+// GET /api/reactions/:changelogId - Get reaction counts for a changelog
+http.route({
+  path: "/api/reactions/:changelogId",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split("/");
+    const changelogId = pathParts[pathParts.length - 1];
+    const fingerprint = url.searchParams.get("fp") || "";
+
+    if (!changelogId) {
+      return new Response(JSON.stringify({ error: "Changelog ID required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
+    try {
+      const counts = await ctx.runQuery(api.reactions.getReactionCounts, {
+        changelogId: changelogId as any,
+      });
+
+      let userReactions: string[] = [];
+      if (fingerprint) {
+        userReactions = await ctx.runQuery(api.reactions.getUserReactions, {
+          changelogId: changelogId as any,
+          fingerprint,
+        });
+      }
+
+      return new Response(JSON.stringify({ counts, userReactions }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    } catch {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+  }),
+});
+
+// POST /api/reactions - Toggle a reaction
+http.route({
+  path: "/api/reactions",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const { changelogId, emoji, fingerprint } = body;
+
+    if (!changelogId || !emoji || !fingerprint) {
+      return new Response(
+        JSON.stringify({ error: "changelogId, emoji, and fingerprint are required" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        }
+      );
+    }
+
+    try {
+      const result = await ctx.runMutation(api.reactions.toggleReaction, {
+        changelogId: changelogId as any,
+        emoji,
+        fingerprint,
+      });
+
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    } catch (error: any) {
+      return new Response(
+        JSON.stringify({ error: error.message || "Failed to toggle reaction" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        }
+      );
+    }
+  }),
+});
+
+// CORS preflight for reactions POST
+http.route({
+  path: "/api/reactions",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
   }),
 });
 

@@ -1,6 +1,11 @@
 import { h, Fragment } from 'preact';
+import { useState, useEffect } from 'preact/hooks';
 import type { JSX } from 'preact';
-import type { ChangelogEntry, WidgetSettings } from './api';
+import type { ChangelogEntry, WidgetSettings, ReactionCounts } from './api';
+import { fetchReactions, toggleReaction } from './api';
+import { getFingerprint } from './storage';
+
+const REACTION_EMOJIS = ['👍', '🎉', '❤️'];
 
 interface FeedProps {
   entries: ChangelogEntry[];
@@ -71,7 +76,7 @@ export function Feed({ entries, settings, isOpen, onClose }: FeedProps) {
           </p>
         ) : (
           entries.map((entry, index) => (
-            <ChangelogItem key={index} entry={entry} primaryColor={settings.primaryColor} />
+            <ChangelogItem key={entry._id || index} entry={entry} primaryColor={settings.primaryColor} />
           ))
         )}
       </div>
@@ -95,7 +100,7 @@ export function Feed({ entries, settings, isOpen, onClose }: FeedProps) {
 }
 
 interface ChangelogItemProps {
-  key?: number;
+  key?: string | number;
   entry: ChangelogEntry;
   primaryColor: string;
 }
@@ -129,6 +134,28 @@ function ChangelogItem({ entry, primaryColor }: ChangelogItemProps) {
         {formattedDate}
       </p>
 
+      {entry.categories && entry.categories.length > 0 && (
+        <div style={{ marginBottom: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          {entry.categories.map((cat, idx) => (
+            <span
+              key={`cat-${idx}`}
+              style={{
+                display: 'inline-block',
+                padding: '3px 8px',
+                borderRadius: '5px',
+                fontSize: '11px',
+                fontWeight: '500',
+                backgroundColor: cat.color + '18',
+                color: cat.color,
+                border: `1px solid ${cat.color}30`,
+              }}
+            >
+              {cat.name}
+            </span>
+          ))}
+        </div>
+      )}
+
       {entry.labels.length > 0 && (
         <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {entry.labels.map((label, idx) => (
@@ -153,6 +180,93 @@ function ChangelogItem({ entry, primaryColor }: ChangelogItemProps) {
       <div style={{ color: '#ccc', fontSize: '14px', lineHeight: '1.6' }}>
         <BlockNoteRenderer content={entry.content} />
       </div>
+
+      {entry._id && <ReactionBar changelogId={entry._id} primaryColor={primaryColor} />}
+    </div>
+  );
+}
+
+// --- Reaction Bar ---
+
+interface ReactionBarProps {
+  changelogId: string;
+  primaryColor: string;
+}
+
+function ReactionBar({ changelogId, primaryColor }: ReactionBarProps) {
+  const [counts, setCounts] = useState<ReactionCounts>({});
+  const [userReactions, setUserReactions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fp = getFingerprint();
+    fetchReactions(changelogId, fp).then((data) => {
+      setCounts(data.counts);
+      setUserReactions(data.userReactions);
+    });
+  }, [changelogId]);
+
+  const handleToggle = async (emoji: string) => {
+    if (loading) return;
+    setLoading(true);
+    const fp = getFingerprint();
+
+    // Optimistic update
+    const wasActive = userReactions.includes(emoji);
+    setUserReactions((prev) =>
+      wasActive ? prev.filter((e) => e !== emoji) : [...prev, emoji]
+    );
+    setCounts((prev) => ({
+      ...prev,
+      [emoji]: (prev[emoji] || 0) + (wasActive ? -1 : 1),
+    }));
+
+    try {
+      await toggleReaction(changelogId, emoji, fp);
+    } catch {
+      // Revert on error
+      setUserReactions((prev) =>
+        wasActive ? [...prev, emoji] : prev.filter((e) => e !== emoji)
+      );
+      setCounts((prev) => ({
+        ...prev,
+        [emoji]: (prev[emoji] || 0) + (wasActive ? 1 : -1),
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+      {REACTION_EMOJIS.map((emoji) => {
+        const isActive = userReactions.includes(emoji);
+        const count = counts[emoji] || 0;
+        return (
+          <button
+            key={emoji}
+            onClick={() => handleToggle(emoji)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 10px',
+              borderRadius: '16px',
+              border: isActive ? `1.5px solid ${primaryColor}` : '1.5px solid #444',
+              backgroundColor: isActive ? `${primaryColor}20` : 'transparent',
+              color: isActive ? primaryColor : '#999',
+              fontSize: '13px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            aria-label={`React with ${emoji}`}
+            aria-pressed={isActive}
+          >
+            <span>{emoji}</span>
+            {count > 0 && <span style={{ fontSize: '12px', fontWeight: '500' }}>{count}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -162,7 +276,6 @@ function ChangelogItem({ entry, primaryColor }: ChangelogItemProps) {
 function BlockNoteRenderer({ content }: { content: any }) {
   if (!content || !Array.isArray(content)) return null;
 
-  // Group consecutive list items into proper <ul>/<ol> wrappers
   const elements: JSX.Element[] = [];
   let i = 0;
 

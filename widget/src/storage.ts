@@ -16,3 +16,19 @@ export function setLastVisit(timestamp: number): void {
     // localStorage unavailable — silently degrade
   }
 }
+
+const FINGERPRINT_KEY = 'releasedock_fingerprint';
+
+export function getFingerprint(): string {
+  try {
+    let fp = localStorage.getItem(FINGERPRINT_KEY);
+    if (!fp) {
+      fp = crypto.randomUUID();
+      localStorage.setItem(FINGERPRINT_KEY, fp);
+    }
+    return fp;
+  } catch {
+    // Fallback: generate a session-only fingerprint
+    return Math.random().toString(36).substring(2);
+  }
+}
